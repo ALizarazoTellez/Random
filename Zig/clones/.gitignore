@@ -1,0 +1,6 @@
+
+# Build artifacts.
+/zig-out/
+
+# Zig cache.
+/.zig-cache/
