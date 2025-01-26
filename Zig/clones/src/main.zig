@@ -25,6 +25,8 @@ pub fn main() !void {
 
     if (std.mem.eql(u8, command.?, "help")) {
         cmdHelp();
+    } else if (std.mem.eql(u8, command.?, "xxd")) {
+        @import("CmdXxd.zig").run(&[_][]const u8{ "Hi", "Zig" });
     }
 }
 
