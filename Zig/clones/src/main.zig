@@ -10,7 +10,24 @@ pub fn main() !void {
     };
     defer args.deinit();
 
-    while (args.next()) |arg| {
-        try stdout.print("Arg: {s}\n", .{arg});
+    // The first argument is always the executed command, is safe to ignore.
+    _ = args.next();
+
+    const command = args.next();
+    if (command == null) {
+        try stdout.print(
+            \\You need to provide a command.
+            \\Use the `help` command for more information.
+        ++ "\n", .{});
+
+        return;
     }
+
+    if (std.mem.eql(u8, command.?, "help")) {
+        cmdHelp();
+    }
+}
+
+fn cmdHelp() void {
+    std.debug.print("I'm here.\n", .{});
 }
