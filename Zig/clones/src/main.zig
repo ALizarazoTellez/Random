@@ -17,7 +17,7 @@ pub fn main() !void {
     if (command == null) {
         try stdout.print(
             \\You need to provide a command.
-            \\Use the `help` command for more information.
+            \\Use the 'help' command for more information...
         ++ "\n", .{});
 
         return;
@@ -37,6 +37,11 @@ pub fn main() !void {
         cmdHelp(cmd_args);
     } else if (std.mem.eql(u8, command.?, "xxd")) {
         @import("CmdXxd.zig").run(cmd_args);
+    } else {
+        try stdout.print(
+            \\Command not found: '{s}'.
+            \\Use the 'help' command for more information...
+        ++ "\n", .{command.?});
     }
 }
 
