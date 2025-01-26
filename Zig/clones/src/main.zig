@@ -23,13 +23,23 @@ pub fn main() !void {
         return;
     }
 
+    // Convert iterator to slice.
+    var args_list = std.ArrayList([]const u8).init(allocator);
+    defer args_list.deinit();
+
+    while (args.next()) |arg| {
+        try args_list.append(arg);
+    }
+
+    const cmd_args = args_list.items;
+
     if (std.mem.eql(u8, command.?, "help")) {
-        cmdHelp();
+        cmdHelp(cmd_args);
     } else if (std.mem.eql(u8, command.?, "xxd")) {
-        @import("CmdXxd.zig").run(&[_][]const u8{ "Hi", "Zig" });
+        @import("CmdXxd.zig").run(cmd_args);
     }
 }
 
-fn cmdHelp() void {
+fn cmdHelp(_: []const []const u8) void {
     std.debug.print("I'm here.\n", .{});
 }
