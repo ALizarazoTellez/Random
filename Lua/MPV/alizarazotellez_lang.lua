@@ -1,6 +1,7 @@
 -- Copyright (C) 2025 - Anderson Lizarazo Tellez.
 
 local mp = require("mp")
+local utils = require("mp.utils")
 
 local options = {
 	enabled = false,
@@ -10,7 +11,7 @@ local options = {
 
 require("mp.options").read_options(options)
 
-function track_current_subtitle(subtitle_data)
+local function track_current_subtitle(subtitle_data)
 	subtitle_data.text = mp.get_property("sub-text")
 	subtitle_data.start = mp.get_property_number("sub-start") or -1
 	subtitle_data.finish = mp.get_property_number("sub-end") or -1
@@ -18,7 +19,7 @@ end
 
 -- FIXME(ALizarazoTellez): I do not want to use global variables.
 local _should_pause_skip_next = false
-function should_pause(current_subtitle, pos)
+local function should_pause(current_subtitle, pos)
 	if pos == nil then
 		return
 	end
@@ -33,6 +34,51 @@ function should_pause(current_subtitle, pos)
 		mp.set_property_bool("pause", true)
 		_should_pause_skip_next = true
 	end
+end
+
+--- Variation of the DJB2 hash function (to prevent overflows).
+local function hash(text)
+	local current_hash = 5381
+
+	local counter = 0
+	for char in text:gmatch(".") do
+		current_hash = current_hash * 33 + string.byte(char)
+
+		-- These are random constants.
+		if counter % 4 == 2 then
+			current_hash = math.floor(current_hash / 100000)
+		end
+		counter = counter + 1
+	end
+
+	return string.format("%x", current_hash)
+end
+
+local function save_subtitle(directory, name, current_subtitle)
+	local file = io.open(utils.join_path(directory, name .. ".txt"), "w")
+	file:write(current_subtitle.text)
+	file:close()
+end
+
+local function save_audio(filepath, directory, name, current_subtitle)
+	mp.commandv(
+		"run",
+		"ffmpeg",
+		"-i",
+		filepath,
+		"-vn",
+		"-acodec",
+		"copy",
+		"-map",
+		"a",
+		"-q:a",
+		"0",
+		"-ss",
+		current_subtitle.start,
+		"-to",
+		current_subtitle.finish,
+		utils.join_path(directory, name .. ".m4a")
+	)
 end
 
 local function main()
@@ -51,10 +97,22 @@ local function main()
 		text = "",
 		start = -1,
 		finish = -1,
+		number = -1,
 	}
+
+	local filepath = ""
+
+	-- Events.
+
+	mp.register_event("file-loaded", function()
+		filepath = mp.get_property("path")
+	end)
+
+	-- Property watchers.
 
 	mp.observe_property("sub-text", "native", function()
 		track_current_subtitle(current_subtitle)
+		current_subtitle.number = current_subtitle.number + 1
 	end)
 
 	mp.observe_property("time-pos", "number", function(_, pos)
@@ -86,6 +144,12 @@ local function main()
 
 	mp.add_key_binding("right", function()
 		mp.set_property_bool("pause", false)
+	end)
+
+	mp.add_key_binding("enter", function()
+		local name = hash(filepath) .. "-" .. tostring(current_subtitle.number)
+		save_subtitle(options.mining_directory, name, current_subtitle)
+		save_audio(filepath, options.mining_directory, name, current_subtitle)
 	end)
 
 	print("Plugin configured!")
