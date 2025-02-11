@@ -1,19 +1,21 @@
-# Lang Script
 
-This is a great example of **how not to program in Lua**.
+# ALizarazoTellez's Lang Script
 
 This script extracts audio and subtitles from the current stream. It requires `ffmpeg`.
 
 It was created to help me learn English.
 
-It needs to follow clean and good practices (such as using a `.conf` file for configuration).
+## Configuration
 
-### Bindings:
+- `enabled`: Enables or disables the script.
+- `mining_directory`: Directory to store the extracted content.
+
+## Bindings:
 
 - `Up`: Repeat the current subtitle.
 - `Down`: Toggle subtitles.
 - `Left`: Jump to the previous subtitle.
 - `Right`: Play (you can spam it, as it does not pause).
-- `Enter`: Extract audio and subtitles (remember to modify the script to change the directory; the variable is `save_directory`).
+- `Enter`: Extract audio and subtitles.
 
-The script automatically pauses at the start of each subtitle, but the bindings assume it's the end of the previous one. Did I already mention that this needs to be cleaned up?
+This script automatically pauses the video at the end of each subtitle.
