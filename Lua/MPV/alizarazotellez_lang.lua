@@ -1,109 +1,94 @@
 -- Copyright (C) 2025 - Anderson Lizarazo Tellez.
 
 local mp = require("mp")
-local utils = require("mp.utils")
 
-local save_directory = "/home/anderson/mining-tmp"
+local options = {
+	enabled = false,
 
-local filepath = nil
+	mining_directory = "",
+}
 
-local current_subtitle = ""
-local last_sub_start = 0
-local last_sub_end = 0
-local sub_start = 0
-local sub_end = 0
+require("mp.options").read_options(options)
 
-mp.add_key_binding("left", function()
-	mp.command("sub-seek -2")
-	mp.set_property("pause", "no")
-end)
-
-mp.add_key_binding("right", function()
-	mp.set_property("pause", "no")
-end)
-
-mp.add_key_binding("up", function()
-	mp.command("sub-seek -1")
-	mp.set_property("pause", "no")
-end)
-
-mp.add_key_binding("down", function()
-	local status = mp.get_property("sub-visibility")
-
-	if status == "yes" then
-		mp.set_property("sub-visibility", "no")
-	else
-		mp.set_property("sub-visibility", "yes")
-	end
-end)
-
-mp.add_key_binding("enter", function()
-	local sub = current_subtitle
-	local start = sub_start
-	local finish = sub_end
-
-	if mp.get_property("pause") == "yes" then
-		sub = last_subtitle
-		start = last_sub_start
-		finish = last_sub_end
-	end
-
-	local subdir = utils.join_path(
-		save_directory,
-		filename .. "_" .. tostring(math.floor(start)) .. "_" .. tostring(math.floor(finish))
-	)
-
-	local file = io.open(subdir .. ".txt", "w")
-	file:write(sub)
-	file:close()
-
-	extract_audio(filepath, subdir, start, finish)
-end)
-
-mp.observe_property("sub-text", "string", function(name, data)
-	last_subtitle = current_subtitle
-	current_subtitle = data
-
-	last_sub_start = sub_start
-	last_sub_end = sub_end
-
-	sub_start = mp.get_property("sub-start") or sub_start
-	sub_end = mp.get_property("sub-end") or sub_end
-
-	sub_start = tonumber(sub_start)
-	sub_end = tonumber(sub_end)
-
-	if sub_start > last_sub_start then
-		mp.set_property("sub-visibility", "no")
-		mp.set_property("pause", "yes")
-	end
-end)
-
-mp.register_event("file-loaded", function()
-	local current_name = nil
-
-	filepath = mp.get_property("path")
-	_, current_name = utils.split_path(filepath)
-
-	while current_name ~= nil do
-		filename = current_name
-		current_name = string.match(filename, "(.+)%.[^.]+$")
-	end
-
-	filename = string.gsub(filename, "%s", "_")
-	filename = string.gsub(filename, "-", "_")
-end)
-
-function extract_audio(input, output, start, finish)
-	mp.command(
-		"run ffmpeg -i '"
-			.. input
-			.. "' -vn -acodec copy -map a -q:a 0 -ss "
-			.. tostring(start)
-			.. " -to "
-			.. tostring(finish)
-			.. " '"
-			.. output
-			.. ".m4a'"
-	)
+function track_current_subtitle(subtitle_data)
+	subtitle_data.text = mp.get_property("sub-text")
+	subtitle_data.start = mp.get_property_number("sub-start") or -1
+	subtitle_data.finish = mp.get_property_number("sub-end") or -1
 end
+
+-- FIXME(ALizarazoTellez): I do not want to use global variables.
+local _should_pause_skip_next = false
+function should_pause(current_subtitle, pos)
+	if pos == nil then
+		return
+	end
+
+	if _should_pause_skip_next then
+		_should_pause_skip_next = false
+		return
+	end
+
+	local difference = current_subtitle.finish - pos
+	if difference >= 0 and difference <= 0.1 then
+		mp.set_property_bool("pause", true)
+		_should_pause_skip_next = true
+	end
+end
+
+local function main()
+	if not options.enabled then
+		print("Plugin is not enabled.")
+		return
+	end
+
+	if options.mining_directory == "" then
+		print("The directory for mining is not configured!")
+		print("Aborting...")
+		return
+	end
+
+	local current_subtitle = {
+		text = "",
+		start = -1,
+		finish = -1,
+	}
+
+	mp.observe_property("sub-text", "native", function()
+		track_current_subtitle(current_subtitle)
+	end)
+
+	mp.observe_property("time-pos", "number", function(_, pos)
+		should_pause(current_subtitle, pos)
+	end)
+
+	-- Keybindings.
+
+	mp.add_key_binding("left", function()
+		-- FIXME(ALizarazoTellez): Depending on the subtitle format, this may not work.
+		mp.command_native({ name = "sub-seek", skip = -1 })
+		mp.set_property_bool("pause", false)
+	end)
+
+	mp.add_key_binding("down", function()
+		local status = mp.get_property_bool("sub-visibility")
+
+		if status then
+			mp.set_property_bool("sub-visibility", false)
+		else
+			mp.set_property_bool("sub-visibility", true)
+		end
+	end)
+
+	mp.add_key_binding("up", function()
+		mp.command_native({ name = "sub-seek", skip = 0 })
+		mp.set_property_bool("pause", false)
+	end)
+
+	mp.add_key_binding("right", function()
+		mp.set_property_bool("pause", false)
+	end)
+
+	print("Plugin configured!")
+end
+
+main()
