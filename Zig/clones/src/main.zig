@@ -6,7 +6,8 @@ pub fn main() !void {
     const stdout = std.io.getStdOut().writer();
 
     var args = std.process.argsWithAllocator(allocator) catch |err| {
-        stdout.print("Unexpected error: {}", .{err});
+        try stdout.print("Unexpected error: {}", .{err});
+        return;
     };
     defer args.deinit();
 
