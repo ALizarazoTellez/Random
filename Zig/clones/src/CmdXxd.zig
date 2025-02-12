@@ -29,4 +29,19 @@ pub fn run(args: []const []const u8) void {
         \\Path: {s}
         \\Size: {}
     ++ "\n", .{ filename, metadata.size() });
+
+    const reader = file.reader();
+    while (true) {
+        const byte = reader.readByte() catch |err| switch (err) {
+            error.EndOfStream => break,
+            else => {
+                stdout.print("Unexpected error: {}\n", .{err}) catch {};
+                return;
+            },
+        };
+
+        stdout.print("{x}", .{byte}) catch {};
+    }
+
+    stdout.print("\n", .{}) catch {};
 }
