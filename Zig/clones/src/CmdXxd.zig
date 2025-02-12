@@ -2,6 +2,16 @@ const std = @import("std");
 
 pub fn run(args: []const []const u8) void {
     const stdout = std.io.getStdOut().writer();
+
+    if (args.len != 1) {
+        stdout.print(
+            \\This command needs exactly one argument!
+            \\The argument is the path to a binary file.
+        ++ "\n", .{}) catch {};
+        return;
+    }
+
+    // The last argument must be the binary file.
     const filename = args[args.len - 1];
 
     const file = std.fs.cwd().openFile(filename, .{ .mode = std.fs.File.OpenMode.read_only }) catch |err| {
