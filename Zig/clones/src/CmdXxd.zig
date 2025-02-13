@@ -20,18 +20,7 @@ pub fn run(args: []const []const u8) void {
     };
     defer file.close();
 
-    const metadata = file.metadata() catch |err| {
-        stdout.print("Unexpected error: {}\n", .{err}) catch {};
-        return;
-    };
-
-    std.debug.print(
-        \\Path: {s}
-        \\Size: {}
-    ++ "\n", .{ filename, metadata.size() });
-
     const maxLineBytes = 16;
-
     const reader = file.reader();
 
     var lineBytes: u5 = 0;
