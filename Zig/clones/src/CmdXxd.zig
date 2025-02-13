@@ -30,8 +30,18 @@ pub fn run(args: []const []const u8) void {
         \\Size: {}
     ++ "\n", .{ filename, metadata.size() });
 
+    const maxLineBytes = 16;
+
     const reader = file.reader();
+
+    var lineBytes: u5 = 0;
+    var index: u32 = 0;
+
     while (true) {
+        if (lineBytes == 0) {
+            stdout.print("{x:0>8}: ", .{index}) catch {};
+        }
+
         const byte = reader.readByte() catch |err| switch (err) {
             error.EndOfStream => break,
             else => {
@@ -40,7 +50,17 @@ pub fn run(args: []const []const u8) void {
             },
         };
 
-        stdout.print("{x}", .{byte}) catch {};
+        stdout.print("{x:0>2}", .{byte}) catch {};
+
+        lineBytes += 1;
+        if (lineBytes == maxLineBytes) {
+            stdout.print("\n", .{}) catch {};
+            lineBytes = 0;
+        } else if (@mod(lineBytes, 2) == 0) {
+            stdout.print(" ", .{}) catch {};
+        }
+
+        index += 1;
     }
 
     stdout.print("\n", .{}) catch {};
