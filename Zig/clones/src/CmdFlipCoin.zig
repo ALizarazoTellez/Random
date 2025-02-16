@@ -19,8 +19,14 @@ pub fn run(args: []const []const u8) void {
     var defaultPrng = std.rand.DefaultPrng.init(0);
     const random = defaultPrng.random();
 
-    const termios = configureTerminal();
-    defer restoreTerminal(termios);
+    configureTerminal();
+    defer restoreTerminal();
+
+    _ = std.os.linux.sigaction(std.os.linux.SIG.INT, &std.os.linux.Sigaction{
+        .handler = .{ .handler = &sigintHandler },
+        .flags = 0,
+        .mask = std.os.linux.empty_sigset,
+    }, null);
 
     var total: u128 = 0;
     var totalHeads: u128 = 0;
@@ -56,11 +62,19 @@ pub fn run(args: []const []const u8) void {
     stdout.writeAll("\x1b[7B") catch {};
 }
 
-fn configureTerminal() std.os.linux.termios {
+fn sigintHandler(_: i32) callconv(.C) void {
+    restoreTerminal();
+    const stdout = std.io.getStdOut().writer();
+    stdout.print("\nSignal received, exiting...\n", .{}) catch {};
+    std.os.linux.exit(0);
+}
+
+var termios: std.os.linux.termios = undefined;
+
+fn configureTerminal() void {
     const stdout = std.io.getStdOut();
     stdout.writeAll("\x1b[?25l") catch {};
 
-    var termios: std.os.linux.termios = undefined;
     _ = std.os.linux.tcgetattr(stdout.handle, &termios);
 
     var modifiedTermios = termios;
@@ -73,11 +87,9 @@ fn configureTerminal() std.os.linux.termios {
     //modifiedTermios.oflag.OPOST = false;
 
     _ = std.os.linux.tcsetattr(stdout.handle, std.os.linux.TCSA.FLUSH, &modifiedTermios);
-
-    return termios;
 }
 
-fn restoreTerminal(termios: std.os.linux.termios) void {
+fn restoreTerminal() void {
     const stdout = std.io.getStdOut();
     stdout.writeAll("\x1b[?25h") catch {};
 
