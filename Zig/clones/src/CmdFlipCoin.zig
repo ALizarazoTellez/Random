@@ -40,11 +40,11 @@ pub fn run(args: []const []const u8) void {
             totalTails += 1;
         }
 
-        const percentHeads = @as(f128, @floatFromInt(totalHeads)) / @as(f128, @floatFromInt(total)) * 100;
-        const percentTails = @as(f128, @floatFromInt(totalTails)) / @as(f128, @floatFromInt(total)) * 100;
+        const percentHeads = @as(f128, @floatFromInt(totalHeads)) / @as(f128, @floatFromInt(total + 1)) * 100;
+        const percentTails = @as(f128, @floatFromInt(totalTails)) / @as(f128, @floatFromInt(total + 1)) * 100;
 
         const difference = @abs(@as(i128, @intCast(totalHeads)) - @as(i128, @intCast(totalTails)));
-        const percentDifference = @as(f128, @floatFromInt(difference)) / @as(f128, @floatFromInt(total)) * 100;
+        const percentDifference = @as(f128, @floatFromInt(difference)) / @as(f128, @floatFromInt(total + 1)) * 100;
 
         stdout.print(
             \\Target iterations: {[total]}
