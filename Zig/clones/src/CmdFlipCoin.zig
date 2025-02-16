@@ -19,12 +19,13 @@ pub fn run(args: []const []const u8) void {
     var defaultPrng = std.rand.DefaultPrng.init(0);
     const random = defaultPrng.random();
 
+    const termios = configureTerminal();
+    defer restoreTerminal(termios);
+
     var total: u128 = 0;
     var totalHeads: u128 = 0;
     var totalTails: u128 = 0;
     while (total < iterations) : (total += 1) {
-        stdout.writeAll("\x1b[2J\x1b[H") catch {};
-
         const isHeads = random.boolean();
 
         if (isHeads) {
@@ -48,5 +49,37 @@ pub fn run(args: []const []const u8) void {
             \\
             \\Difference: {[percentDifference]d:.3}% ({[totalDifference]})
         ++ "\n", .{ .total = iterations, .current = total + 1, .percentHeads = percentHeads, .totalHeads = totalHeads, .percentTails = percentTails, .totalTails = totalTails, .percentDifference = percentDifference, .totalDifference = difference }) catch {};
+
+        stdout.writeAll("\x1b[7A") catch {};
     }
+
+    stdout.writeAll("\x1b[7B") catch {};
+}
+
+fn configureTerminal() std.os.linux.termios {
+    const stdout = std.io.getStdOut();
+    stdout.writeAll("\x1b[?25l") catch {};
+
+    var termios: std.os.linux.termios = undefined;
+    _ = std.os.linux.tcgetattr(stdout.handle, &termios);
+
+    var modifiedTermios = termios;
+    modifiedTermios.lflag.ECHO = false;
+    modifiedTermios.lflag.ICANON = false;
+    //modifiedTermios.lflag.ISIG = false;
+    modifiedTermios.lflag.IEXTEN = false;
+    modifiedTermios.iflag.IXON = false;
+    modifiedTermios.iflag.ICRNL = false;
+    //modifiedTermios.oflag.OPOST = false;
+
+    _ = std.os.linux.tcsetattr(stdout.handle, std.os.linux.TCSA.FLUSH, &modifiedTermios);
+
+    return termios;
+}
+
+fn restoreTerminal(termios: std.os.linux.termios) void {
+    const stdout = std.io.getStdOut();
+    stdout.writeAll("\x1b[?25h") catch {};
+
+    _ = std.os.linux.tcsetattr(stdout.handle, std.os.linux.TCSA.FLUSH, &termios);
 }
