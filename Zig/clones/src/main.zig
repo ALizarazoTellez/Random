@@ -40,6 +40,8 @@ pub fn main() !void {
         @import("CmdXxd.zig").run(cmd_args);
     } else if (std.mem.eql(u8, command.?, "flip-coin")) {
         @import("CmdFlipCoin.zig").run(cmd_args);
+    } else if (std.mem.eql(u8, command.?, "average")) {
+        @import("CmdAverage.zig").run(cmd_args);
     } else {
         try stdout.print(
             \\Command not found: '{s}'.
