@@ -28,14 +28,12 @@ pub fn run(args: [][]const u8) void {
     }
 
     var average: u128 = 0;
-    var runningAverage: u128 = 0;
     var dynamicAverage: u128 = 0;
     var dynamicAverageCount: u128 = 0;
 
     for (numbers.items, 1..) |number, index| {
         average += number;
-        runningAverage = (runningAverage + number) / (index);
-        dynamicAverage += number * (index);
+        dynamicAverage += number * index;
         dynamicAverageCount += index;
     }
 
@@ -44,7 +42,6 @@ pub fn run(args: [][]const u8) void {
 
     stdout.print(
         \\Average: {[average]}
-        \\Running Average: {[runningAverage]}
         \\Dynamic Average: {[dynamicAverage]}
-    ++ "\n", .{ .average = average, .runningAverage = runningAverage, .dynamicAverage = dynamicAverage }) catch {};
+    ++ "\n", .{ .average = average, .dynamicAverage = dynamicAverage }) catch {};
 }
