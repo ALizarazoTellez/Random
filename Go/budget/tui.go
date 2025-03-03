@@ -43,7 +43,7 @@ func addIncome(wallet wallet) {
 		for _, f := range wallet.Flows {
 			group, ok := wallet.Groups[f.Target]
 			if !ok {
-				panic(fmt.Sprintln("Ignoring unknown group:", f.Target))
+				panic(fmt.Sprintln("Unknown group:", f.Target))
 			}
 
 			if f.Quantity <= 1 {
@@ -91,7 +91,6 @@ func addIncome(wallet wallet) {
 
 		if last == quantity {
 			panic("There is no progress...")
-			break
 		}
 		last = quantity
 	}
