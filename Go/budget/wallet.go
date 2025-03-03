@@ -18,6 +18,7 @@ func (w wallet) totalMoney() float64 {
 
 type group struct {
 	Transactions []transaction
+	Reflow       bool
 	MaximumMoney float64
 }
 

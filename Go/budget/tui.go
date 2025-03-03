@@ -46,6 +46,10 @@ func addIncome(wallet wallet) {
 				panic(fmt.Sprintln("Unknown group:", f.Target))
 			}
 
+			if isModified[f.Target] && !group.Reflow {
+				continue
+			}
+
 			if f.Quantity <= 1 {
 				q := quantity * f.Quantity
 				if group.MaximumMoney != 0 {
@@ -137,10 +141,18 @@ func addGroup(wallet wallet) wallet {
 			Run()
 	}
 
+	var reflow bool
+	huh.NewConfirm().
+		Title("Can reflow?").
+		Affirmative("Yes").
+		Negative("No").
+		Value(&reflow).
+		Run()
+
 	if wallet.Groups == nil {
 		wallet.Groups = make(map[string]group)
 	}
-	wallet.Groups[name] = group{MaximumMoney: maximumMoney}
+	wallet.Groups[name] = group{Reflow: reflow, MaximumMoney: maximumMoney}
 
 	return wallet
 }
