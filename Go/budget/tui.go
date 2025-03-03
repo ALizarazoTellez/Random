@@ -2,23 +2,40 @@ package main
 
 import (
 	"fmt"
-	"math"
+	"strconv"
+	"strings"
 	"time"
+
+	"github.com/charmbracelet/huh"
 )
 
 func printBalance(wallet wallet) {
+	fmt.Printf("Total money: $%.0f.\n", wallet.totalMoney())
 	for name, group := range wallet.Groups {
-		fmt.Printf("\t%s: $%.2f.\n", name, group.totalMoney())
+		if group.MaximumMoney == 0 {
+			fmt.Printf("\t- %s: $%.0f.\n", name, group.totalMoney())
+		} else {
+			fmt.Printf("\t- %s (max: $%.0f): $%.0f.\n", name, group.MaximumMoney, group.totalMoney())
+		}
 	}
-	fmt.Printf("Total money: $%.2f.\n", wallet.totalMoney())
 }
 
 func addIncome(wallet wallet) {
 	var quantity float64
-	fmt.Print("Quantity: ")
-	fmt.Scanf("%f", &quantity)
+	huh.NewInput().
+		Title("What's the quantity?").
+		Prompt("$").
+		Validate(func(s string) error {
+			var err error
+			quantity, err = strconv.ParseFloat(s, 64)
 
-	fmt.Println("The value to add is:", quantity)
+			if quantity <= 0 || err != nil {
+				return fmt.Errorf("you need to introduce a positive number different from zero")
+			}
+
+			return nil
+		}).
+		Run()
 
 	last := quantity
 	isModified := map[string]bool{}
@@ -26,10 +43,8 @@ func addIncome(wallet wallet) {
 		for _, f := range wallet.Flows {
 			group, ok := wallet.Groups[f.Target]
 			if !ok {
-				fmt.Println("Ignoring unknown group:", f.Target)
+				panic(fmt.Sprintln("Ignoring unknown group:", f.Target))
 			}
-
-			fmt.Println("Processing:", f.Target)
 
 			if f.Quantity <= 1 {
 				q := quantity * f.Quantity
@@ -72,15 +87,11 @@ func addIncome(wallet wallet) {
 			}
 
 			wallet.Groups[f.Target] = group
-			fmt.Printf("Next: $%.2f.\n", quantity)
 		}
 
 		if last == quantity {
-			fmt.Println("There is no progress...")
+			panic("There is no progress...")
 			break
-		}
-		if math.IsNaN(quantity) {
-			panic("NaN detected!")
 		}
 		last = quantity
 	}
@@ -88,12 +99,44 @@ func addIncome(wallet wallet) {
 
 func addGroup(wallet wallet) wallet {
 	var name string
-	fmt.Print("Group name: ")
-	fmt.Scanln(&name)
+	huh.NewInput().
+		Title("What's the name of the new group?").
+		Prompt("Name: ").
+		Validate(func(s string) error {
+			if strings.TrimSpace(s) == "" {
+				return fmt.Errorf("empty names are not valid")
+			}
+
+			return nil
+		}).
+		Value(&name).
+		Run()
+
+	var hasLimit bool
+	huh.NewConfirm().
+		Title("Has a money limit?").
+		Affirmative("Yes").
+		Negative("No").
+		Value(&hasLimit).
+		Run()
 
 	var maximumMoney float64
-	fmt.Print("Maximum money (0 means no limit): ")
-	fmt.Scanf("%f", &maximumMoney)
+	if hasLimit {
+		huh.NewInput().
+			Title("What's the limit?").
+			Prompt("$").
+			Validate(func(s string) error {
+				var err error
+				maximumMoney, err = strconv.ParseFloat(s, 64)
+
+				if maximumMoney <= 0 || err != nil {
+					return fmt.Errorf("you need to introduce a positive number different from zero")
+				}
+
+				return nil
+			}).
+			Run()
+	}
 
 	if wallet.Groups == nil {
 		wallet.Groups = make(map[string]group)
@@ -105,12 +148,59 @@ func addGroup(wallet wallet) wallet {
 
 func addFlow(wallet wallet) wallet {
 	var target string
-	fmt.Print("Target group: ")
-	fmt.Scanln(&target)
+	huh.NewSelect[string]().
+		Title("What's the target group?").
+		OptionsFunc(func() []huh.Option[string] {
+			var groups []string
+			for name := range wallet.Groups {
+				groups = append(groups, name)
+			}
+
+			return huh.NewOptions(groups...)
+		}, nil).
+		Value(&target).
+		Run()
+
+	var usesPercentage bool
+	huh.NewConfirm().
+		Title("Use percentages?").
+		Affirmative("Yes").
+		Negative("No").
+		Value(&usesPercentage).
+		Run()
 
 	var quantity float64
-	fmt.Print("Quantity (<= 1 uses percentage): ")
-	fmt.Scanf("%f", &quantity)
+	huh.NewInput().
+		TitleFunc(func() string {
+			if usesPercentage {
+				return "What's the percentage?"
+			}
+			return "What's the quantity?"
+		}, usesPercentage).
+		Prompt("> ").
+		Validate(func(s string) error {
+			var err error
+			quantity, err = strconv.ParseFloat(s, 64)
+
+			if quantity <= 0 || err != nil {
+				return fmt.Errorf("you need to introduce a positive number different of zero")
+			}
+
+			if usesPercentage && quantity > 100 {
+				return fmt.Errorf("percentages can only go up to 100%%")
+			}
+
+			if !usesPercentage && quantity <= 1 {
+				return fmt.Errorf("the quantity must be greater than 1")
+			}
+
+			if usesPercentage {
+				quantity /= 100
+			}
+
+			return nil
+		}).
+		Run()
 
 	wallet.Flows = append(wallet.Flows, flow{Target: target, Quantity: quantity})
 

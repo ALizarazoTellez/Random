@@ -4,39 +4,55 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/charmbracelet/huh"
 )
 
 func main() {
 	wallet := loadWallet()
 
-outerloop:
+	const (
+		runBalance = iota
+		runIncome
+		runGroup
+		runFlow
+		runSave
+		runExit
+	)
+
 	for {
-		fmt.Println("What do you want to do?:")
-		fmt.Println("[0] Balance")
-		fmt.Println("[1] Add income")
-		fmt.Println("[2] Add group")
-		fmt.Println("[3] Add flow")
-		fmt.Println("[-1] Save & exit")
+		fmt.Println()
 
 		var option int
-		fmt.Scanf("%d", &option)
+		huh.NewSelect[int]().
+			Title("What do you want to do?").
+			Options(
+				huh.NewOption("View balance", runBalance),
+				huh.NewOption("Add income", runIncome),
+				huh.NewOption("Add group", runGroup),
+				huh.NewOption("Add flow", runFlow),
+				huh.NewOption("Save changes", runSave),
+				huh.NewOption("Exit", runExit),
+			).
+			Value(&option).
+			Run()
 
 		switch option {
-		case 0:
+		case runBalance:
 			printBalance(wallet)
-		case 1:
+		case runIncome:
 			addIncome(wallet)
-		case 2:
+		case runGroup:
 			wallet = addGroup(wallet)
-		case 3:
+		case runFlow:
 			wallet = addFlow(wallet)
-		case -1:
-			break outerloop
+		case runSave:
+			if err := saveWallet(wallet); err != nil {
+				panic(err)
+			}
+		case runExit:
+			return
 		}
-	}
-
-	if err := saveWallet(wallet); err != nil {
-		panic(err)
 	}
 }
 
