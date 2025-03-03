@@ -25,8 +25,6 @@ func (w wallet) totalMoney() float64 {
 type group struct {
 	Transactions []transaction
 	MaximumMoney float64
-	StartDate    time.Duration
-	EndDate      time.Duration
 }
 
 func (g group) totalMoney() float64 {
@@ -46,6 +44,7 @@ type flow struct {
 type transaction struct {
 	Tags     []string
 	Quantity float64
+	Time     time.Time
 }
 
 func main() {
@@ -118,6 +117,7 @@ func addIncome(wallet wallet) {
 				if !isModified[f.Target] {
 					group.Transactions = append(group.Transactions, transaction{
 						Quantity: q,
+						Time:     time.Now(),
 					})
 					isModified[f.Target] = true
 				} else {
@@ -137,6 +137,7 @@ func addIncome(wallet wallet) {
 				if !isModified[f.Target] {
 					group.Transactions = append(group.Transactions, transaction{
 						Quantity: q,
+						Time:     time.Now(),
 					})
 					isModified[f.Target] = true
 				} else {
