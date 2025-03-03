@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"time"
 )
@@ -93,6 +94,8 @@ func addIncome(wallet wallet) {
 	fmt.Print("Quantity: ")
 	fmt.Scanf("%f", &quantity)
 
+	fmt.Println("The value to add is:", quantity)
+
 	last := quantity
 	isModified := map[string]bool{}
 	for quantity != 0 {
@@ -102,20 +105,34 @@ func addIncome(wallet wallet) {
 				fmt.Println("Ignoring unknown group:", f.Target)
 			}
 
+			fmt.Println("Processing:", f.Target)
+
 			if f.Quantity <= 1 {
+				q := quantity * f.Quantity
+				if group.MaximumMoney != 0 {
+					q = min(q, group.MaximumMoney-group.totalMoney())
+				}
+				if q == 0 {
+					continue
+				}
 				if !isModified[f.Target] {
 					group.Transactions = append(group.Transactions, transaction{
-						Quantity: quantity * f.Quantity,
+						Quantity: q,
 					})
 					isModified[f.Target] = true
 				} else {
-					group.Transactions[len(group.Transactions)-1].Quantity += quantity * f.Quantity
+					group.Transactions[len(group.Transactions)-1].Quantity += q
 				}
 
-				quantity -= quantity * f.Quantity
-			} else {
-				q := min(quantity, f.Quantity)
 				quantity -= q
+			} else {
+				q := min(f.Quantity, quantity)
+				if group.MaximumMoney != 0 {
+					q = min(q, group.MaximumMoney-group.totalMoney())
+				}
+				if q == 0 {
+					continue
+				}
 
 				if !isModified[f.Target] {
 					group.Transactions = append(group.Transactions, transaction{
@@ -125,16 +142,19 @@ func addIncome(wallet wallet) {
 				} else {
 					group.Transactions[len(group.Transactions)-1].Quantity += q
 				}
+				quantity -= q
 			}
 
 			wallet.Groups[f.Target] = group
+			fmt.Printf("Next: $%.2f.\n", quantity)
 		}
-
-		fmt.Printf("Next: $%.2f.\n", quantity)
 
 		if last == quantity {
 			fmt.Println("There is no progress...")
 			break
+		}
+		if math.IsNaN(quantity) {
+			panic("NaN detected!")
 		}
 		last = quantity
 	}
@@ -145,10 +165,14 @@ func addGroup(wallet wallet) wallet {
 	fmt.Print("Group name: ")
 	fmt.Scanln(&name)
 
+	var maximumMoney float64
+	fmt.Print("Maximum money (0 means no limit): ")
+	fmt.Scanf("%f", &maximumMoney)
+
 	if wallet.Groups == nil {
 		wallet.Groups = make(map[string]group)
 	}
-	wallet.Groups[name] = group{}
+	wallet.Groups[name] = group{MaximumMoney: maximumMoney}
 
 	return wallet
 }
