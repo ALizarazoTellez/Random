@@ -8,7 +8,7 @@ import (
 )
 
 type wallet struct {
-	Groups []group
+	Groups map[string]group
 	Flows  []flow
 }
 
@@ -21,18 +21,7 @@ func (w wallet) totalMoney() float64 {
 	return total
 }
 
-func (w wallet) indexGroup(name string) int {
-	for i, g := range w.Groups {
-		if g.Name == name {
-			return i
-		}
-	}
-
-	return -1
-}
-
 type group struct {
-	Name         string
 	Transactions []transaction
 	MaximumMoney float64
 	StartDate    time.Duration
@@ -93,8 +82,8 @@ outerloop:
 }
 
 func printBalance(wallet wallet) {
-	for _, g := range wallet.Groups {
-		fmt.Printf("\t%s: $%.2f.\n", g.Name, g.totalMoney())
+	for name, group := range wallet.Groups {
+		fmt.Printf("\t%s: $%.2f.\n", name, group.totalMoney())
 	}
 	fmt.Printf("Total money: $%.2f.\n", wallet.totalMoney())
 }
@@ -105,24 +94,40 @@ func addIncome(wallet wallet) {
 	fmt.Scanf("%f", &quantity)
 
 	last := quantity
+	isModified := map[string]bool{}
 	for quantity != 0 {
 		for _, f := range wallet.Flows {
-			index := wallet.indexGroup(f.Target)
-			if index < 0 {
+			group, ok := wallet.Groups[f.Target]
+			if !ok {
 				fmt.Println("Ignoring unknown group:", f.Target)
-				continue
 			}
 
 			if f.Quantity <= 1 {
-				wallet.Groups[index].Transactions = append(wallet.Groups[index].Transactions, transaction{Quantity: quantity * f.Quantity})
+				if !isModified[f.Target] {
+					group.Transactions = append(group.Transactions, transaction{
+						Quantity: quantity * f.Quantity,
+					})
+					isModified[f.Target] = true
+				} else {
+					group.Transactions[len(group.Transactions)-1].Quantity += quantity * f.Quantity
+				}
+
 				quantity -= quantity * f.Quantity
-				continue
+			} else {
+				q := min(quantity, f.Quantity)
+				quantity -= q
+
+				if !isModified[f.Target] {
+					group.Transactions = append(group.Transactions, transaction{
+						Quantity: q,
+					})
+					isModified[f.Target] = true
+				} else {
+					group.Transactions[len(group.Transactions)-1].Quantity += q
+				}
 			}
 
-			q := min(quantity, f.Quantity)
-			quantity -= q
-
-			wallet.Groups[index].Transactions = append(wallet.Groups[index].Transactions, transaction{Quantity: q})
+			wallet.Groups[f.Target] = group
 		}
 
 		fmt.Printf("Next: $%.2f.\n", quantity)
@@ -140,7 +145,10 @@ func addGroup(wallet wallet) wallet {
 	fmt.Print("Group name: ")
 	fmt.Scanln(&name)
 
-	wallet.Groups = append(wallet.Groups, group{Name: name})
+	if wallet.Groups == nil {
+		wallet.Groups = make(map[string]group)
+	}
+	wallet.Groups[name] = group{}
 
 	return wallet
 }
