@@ -53,6 +53,7 @@ func addIncome(w wallet) {
 
 	for quantity != 0 {
 		for priority := range maximumPriority {
+			targetQuantity := quantity
 			for groupName, group := range w {
 				if modifiedGroups[groupName] && !group.Reflow {
 					continue
@@ -65,7 +66,7 @@ func addIncome(w wallet) {
 
 				var q float64
 				if f.IsPercentage {
-					q = quantity * f.Value
+					q = targetQuantity * f.Value
 				} else {
 					q = min(f.Value, quantity)
 				}
