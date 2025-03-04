@@ -101,6 +101,62 @@ func addIncome(w wallet) {
 	}
 }
 
+func addExpense(w wallet) {
+	var groupName string
+	huh.NewSelect[string]().
+		Title("What's the target group?").
+		OptionsFunc(func() []huh.Option[string] {
+			var groups []string
+			for groupName := range w {
+				groups = append(groups, groupName)
+			}
+
+			return huh.NewOptions(groups...)
+		}, nil).
+		Value(&groupName).
+		Run()
+
+	group := w[groupName]
+
+	var quantity float64
+	huh.NewInput().
+		Title("How much?").
+		Prompt("$").
+		Validate(func(s string) error {
+			var err error
+			quantity, err = strconv.ParseFloat(s, 64)
+
+			if quantity <= 0 || err != nil {
+				return fmt.Errorf("you must introduce a positive number greater than zero")
+			}
+
+			maxQuantity := group.totalMoney()
+			if quantity > maxQuantity {
+				return fmt.Errorf("the number must be less than %.2f", maxQuantity)
+			}
+
+			return nil
+		}).
+		Run()
+
+	var tags []string
+	huh.NewInput().
+		Title("With tags...").
+		Validate(func(s string) error {
+			tags = strings.Fields(s)
+			return nil
+		}).
+		Run()
+
+	group.Transactions = append(group.Transactions, transaction{
+		Time:     time.Now(),
+		Quantity: quantity * -1,
+		Tags:     tags,
+	})
+
+	w[groupName] = group
+}
+
 func addGroup(wallet wallet) wallet {
 	var name string
 	huh.NewInput().
@@ -156,7 +212,7 @@ func addGroup(wallet wallet) wallet {
 }
 
 func addFlow(wallet wallet) wallet {
-	var target string
+	var groupName string
 	huh.NewSelect[string]().
 		Title("What's the target group?").
 		OptionsFunc(func() []huh.Option[string] {
@@ -167,7 +223,7 @@ func addFlow(wallet wallet) wallet {
 
 			return huh.NewOptions(groups...)
 		}, nil).
-		Value(&target).
+		Value(&groupName).
 		Run()
 
 	var priority int
@@ -231,12 +287,12 @@ func addFlow(wallet wallet) wallet {
 		}).
 		Run()
 
-	group := wallet[target]
+	group := wallet[groupName]
 	if group.Flows == nil {
 		group.Flows = map[int]flow{}
 	}
 	group.Flows[priority] = flow{Value: value, IsPercentage: isPercentage}
-	wallet[target] = group
+	wallet[groupName] = group
 
 	return wallet
 }

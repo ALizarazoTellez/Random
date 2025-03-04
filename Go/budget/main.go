@@ -14,6 +14,7 @@ func main() {
 	const (
 		runBalance = iota
 		runIncome
+		runExpense
 		runGroup
 		runFlow
 		runSave
@@ -29,6 +30,7 @@ func main() {
 			Options(
 				huh.NewOption("View balance", runBalance),
 				huh.NewOption("Add income", runIncome),
+				huh.NewOption("Add expense", runExpense),
 				huh.NewOption("Add group", runGroup),
 				huh.NewOption("Add flow", runFlow),
 				huh.NewOption("Save changes", runSave),
@@ -42,6 +44,8 @@ func main() {
 			printBalance(wallet)
 		case runIncome:
 			addIncome(wallet)
+		case runExpense:
+			addExpense(wallet)
 		case runGroup:
 			wallet = addGroup(wallet)
 		case runFlow:
