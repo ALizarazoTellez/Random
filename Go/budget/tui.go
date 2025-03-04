@@ -39,6 +39,15 @@ func addIncome(w wallet) {
 		}).
 		Run()
 
+	var tags []string
+	huh.NewInput().
+		Title("With tags...").
+		Validate(func(s string) error {
+			tags = strings.Fields(s)
+			return nil
+		}).
+		Run()
+
 	last := quantity
 	modifiedGroups := map[string]bool{}
 
@@ -73,6 +82,7 @@ func addIncome(w wallet) {
 					group.Transactions = append(group.Transactions, transaction{
 						Quantity: q,
 						Time:     time.Now(),
+						Tags:     tags,
 					})
 					modifiedGroups[groupName] = true
 				} else {
