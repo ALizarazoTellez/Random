@@ -9,6 +9,8 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
+const maximumPriority = 100
+
 func printBalance(wallet wallet) {
 	fmt.Printf("Total money: $%.0f.\n", wallet.totalMoney())
 	for name, group := range wallet {
@@ -41,7 +43,7 @@ func addIncome(w wallet) {
 	modifiedGroups := map[string]bool{}
 
 	for quantity != 0 {
-		for priority := range 10 { // TODO(ALizarazoTellez): Don't hardcode 10.
+		for priority := range maximumPriority {
 			for groupName, group := range w {
 				if modifiedGroups[groupName] && !group.Reflow {
 					continue
@@ -158,6 +160,26 @@ func addFlow(wallet wallet) wallet {
 		Value(&target).
 		Run()
 
+	var priority int
+	huh.NewInput().
+		Title("What's the priority?").
+		Prompt("? ").
+		Validate(func(s string) error {
+			var err error
+			priority, err = strconv.Atoi(s)
+
+			if priority < 0 || err != nil {
+				return fmt.Errorf("you must introduce a positive number")
+			}
+
+			if priority > maximumPriority {
+				return fmt.Errorf("the maximum priority is %d", maximumPriority)
+			}
+
+			return nil
+		}).
+		Run()
+
 	var isPercentage bool
 	huh.NewConfirm().
 		Title("Use percentages?").
@@ -203,7 +225,7 @@ func addFlow(wallet wallet) wallet {
 	if group.Flows == nil {
 		group.Flows = map[int]flow{}
 	}
-	group.Flows[0] = flow{Value: value, IsPercentage: isPercentage}
+	group.Flows[priority] = flow{Value: value, IsPercentage: isPercentage}
 	wallet[target] = group
 
 	return wallet
