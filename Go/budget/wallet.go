@@ -2,14 +2,11 @@ package main
 
 import "time"
 
-type wallet struct {
-	Groups map[string]group
-	Flows  []flow
-}
+type wallet map[string]group
 
 func (w wallet) totalMoney() float64 {
 	total := float64(0)
-	for _, g := range w.Groups {
+	for _, g := range w {
 		total += g.totalMoney()
 	}
 
@@ -18,6 +15,7 @@ func (w wallet) totalMoney() float64 {
 
 type group struct {
 	Transactions []transaction
+	Flows        map[int]flow
 	Reflow       bool
 	MaximumMoney float64
 }
@@ -32,8 +30,8 @@ func (g group) totalMoney() float64 {
 }
 
 type flow struct {
-	Target   string
-	Quantity float64 // If its <=1 is a percentage, otherwise is a literal.
+	Value        float64
+	IsPercentage bool
 }
 
 type transaction struct {

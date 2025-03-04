@@ -11,7 +11,7 @@ import (
 
 func printBalance(wallet wallet) {
 	fmt.Printf("Total money: $%.0f.\n", wallet.totalMoney())
-	for name, group := range wallet.Groups {
+	for name, group := range wallet {
 		if group.MaximumMoney == 0 {
 			fmt.Printf("\t- %s: $%.0f.\n", name, group.totalMoney())
 		} else {
@@ -20,7 +20,7 @@ func printBalance(wallet wallet) {
 	}
 }
 
-func addIncome(wallet wallet) {
+func addIncome(w wallet) {
 	var quantity float64
 	huh.NewInput().
 		Title("What's the quantity?").
@@ -38,59 +38,48 @@ func addIncome(wallet wallet) {
 		Run()
 
 	last := quantity
-	isModified := map[string]bool{}
+	modifiedGroups := map[string]bool{}
+
 	for quantity != 0 {
-		for _, f := range wallet.Flows {
-			group, ok := wallet.Groups[f.Target]
-			if !ok {
-				panic(fmt.Sprintln("Unknown group:", f.Target))
-			}
+		for priority := range 10 { // TODO(ALizarazoTellez): Don't hardcode 10.
+			for groupName, group := range w {
+				if modifiedGroups[groupName] && !group.Reflow {
+					continue
+				}
 
-			if isModified[f.Target] && !group.Reflow {
-				continue
-			}
+				f, ok := group.Flows[priority]
+				if !ok {
+					continue
+				}
 
-			if f.Quantity <= 1 {
-				q := quantity * f.Quantity
+				var q float64
+				if f.IsPercentage {
+					q = quantity * f.Value
+				} else {
+					q = min(f.Value, quantity)
+				}
+
 				if group.MaximumMoney != 0 {
 					q = min(q, group.MaximumMoney-group.totalMoney())
 				}
+
 				if q == 0 {
 					continue
 				}
-				if !isModified[f.Target] {
+
+				if !modifiedGroups[groupName] {
 					group.Transactions = append(group.Transactions, transaction{
 						Quantity: q,
 						Time:     time.Now(),
 					})
-					isModified[f.Target] = true
+					modifiedGroups[groupName] = true
 				} else {
 					group.Transactions[len(group.Transactions)-1].Quantity += q
 				}
 
 				quantity -= q
-			} else {
-				q := min(f.Quantity, quantity)
-				if group.MaximumMoney != 0 {
-					q = min(q, group.MaximumMoney-group.totalMoney())
-				}
-				if q == 0 {
-					continue
-				}
-
-				if !isModified[f.Target] {
-					group.Transactions = append(group.Transactions, transaction{
-						Quantity: q,
-						Time:     time.Now(),
-					})
-					isModified[f.Target] = true
-				} else {
-					group.Transactions[len(group.Transactions)-1].Quantity += q
-				}
-				quantity -= q
+				w[groupName] = group
 			}
-
-			wallet.Groups[f.Target] = group
 		}
 
 		if last == quantity {
@@ -149,10 +138,7 @@ func addGroup(wallet wallet) wallet {
 		Value(&reflow).
 		Run()
 
-	if wallet.Groups == nil {
-		wallet.Groups = make(map[string]group)
-	}
-	wallet.Groups[name] = group{Reflow: reflow, MaximumMoney: maximumMoney}
+	wallet[name] = group{Reflow: reflow, MaximumMoney: maximumMoney}
 
 	return wallet
 }
@@ -163,8 +149,8 @@ func addFlow(wallet wallet) wallet {
 		Title("What's the target group?").
 		OptionsFunc(func() []huh.Option[string] {
 			var groups []string
-			for name := range wallet.Groups {
-				groups = append(groups, name)
+			for groupName := range wallet {
+				groups = append(groups, groupName)
 			}
 
 			return huh.NewOptions(groups...)
@@ -172,48 +158,53 @@ func addFlow(wallet wallet) wallet {
 		Value(&target).
 		Run()
 
-	var usesPercentage bool
+	var isPercentage bool
 	huh.NewConfirm().
 		Title("Use percentages?").
 		Affirmative("Yes").
 		Negative("No").
-		Value(&usesPercentage).
+		Value(&isPercentage).
 		Run()
 
-	var quantity float64
+	var value float64
 	huh.NewInput().
 		TitleFunc(func() string {
-			if usesPercentage {
+			if isPercentage {
 				return "What's the percentage?"
 			}
 			return "What's the quantity?"
-		}, usesPercentage).
+		}, isPercentage).
 		Prompt("> ").
 		Validate(func(s string) error {
 			var err error
-			quantity, err = strconv.ParseFloat(s, 64)
+			value, err = strconv.ParseFloat(s, 64)
 
-			if quantity <= 0 || err != nil {
+			if value <= 0 || err != nil {
 				return fmt.Errorf("you need to introduce a positive number different of zero")
 			}
 
-			if usesPercentage && quantity > 100 {
+			if isPercentage && value > 100 {
 				return fmt.Errorf("percentages can only go up to 100%%")
 			}
 
-			if !usesPercentage && quantity <= 1 {
+			if !isPercentage && value <= 1 {
 				return fmt.Errorf("the quantity must be greater than 1")
 			}
 
-			if usesPercentage {
-				quantity /= 100
+			if isPercentage {
+				value /= 100
 			}
 
 			return nil
 		}).
 		Run()
 
-	wallet.Flows = append(wallet.Flows, flow{Target: target, Quantity: quantity})
+	group := wallet[target]
+	if group.Flows == nil {
+		group.Flows = map[int]flow{}
+	}
+	group.Flows[0] = flow{Value: value, IsPercentage: isPercentage}
+	wallet[target] = group
 
 	return wallet
 }
