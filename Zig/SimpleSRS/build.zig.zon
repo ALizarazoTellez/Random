@@ -1,6 +1,8 @@
 .{
-    .name = "SimpleSRS",
+    .name = .SimpleSRS,
     .version = "0.1.0",
+
+    .fingerprint = 0xc71ec065fe5ed5d8,
 
     .paths = .{"src"},
 
