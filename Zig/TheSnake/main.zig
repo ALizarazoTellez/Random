@@ -2,6 +2,8 @@ const std = @import("std");
 
 const linux = std.os.linux;
 
+const term = @import("term.zig");
+
 const App = struct {
     const Direction = enum { up, down, left, right };
     const Snake = struct {
@@ -17,11 +19,11 @@ const App = struct {
     var ticks: u64 = 0;
 
     fn update() bool {
-        switch (readChar()) {
+        switch (term.readChar()) {
             'q' => return true,
 
-            '\x1b' => switch (readChar()) {
-                '[' => switch (readChar()) {
+            '\x1b' => switch (term.readChar()) {
+                '[' => switch (term.readChar()) {
                     'A' => Snake.direction = .up,
                     'B' => Snake.direction = .down,
                     'C' => Snake.direction = .right,
@@ -141,42 +143,14 @@ test "setPos behavior" {
     allocator.free(output);
 }
 
-const stdinFd = 0;
-
-fn enableRawMode() void {
-    var termios: linux.termios = undefined;
-    _ = linux.tcgetattr(stdinFd, &termios);
-    termios.lflag.ECHO = false;
-    termios.lflag.ICANON = false;
-    termios.cc[@intFromEnum(linux.V.MIN)] = 0;
-    termios.cc[@intFromEnum(linux.V.TIME)] = 0;
-    _ = linux.tcsetattr(stdinFd, linux.TCSA.DRAIN, &termios);
-}
-
-fn getWinSize() struct { x: u16, y: u16 } {
-    var winsize: std.posix.winsize = undefined;
-    _ = linux.ioctl(stdinFd, linux.T.IOCGWINSZ, @intFromPtr(&winsize));
-
-    return .{ .x = winsize.col, .y = winsize.row };
-}
-
-const stdin = std.io.getStdIn().reader();
 const stdout = std.io.getStdOut().writer();
-
-fn readChar() u8 {
-    var buf: [1]u8 = undefined;
-    _ = stdin.read(&buf) catch {
-        std.debug.panic("Error reading character!", .{});
-    };
-
-    return buf[0];
-}
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
 
-    enableRawMode();
+    term.setRawMode(true);
+    defer term.setRawMode(false);
 
     try stdout.print("\x1b[?1049h", .{}); // Enable alternate buffer.
     defer stdout.print("\x1b[?1049l", .{}) catch {}; // Disable alternate buffer.
@@ -185,13 +159,14 @@ pub fn main() !void {
 
     const startTimestamp = std.time.milliTimestamp();
 
-    const size = getWinSize();
-    if (size.x % 2 != 0) {
-        App.Board.maxX = size.x - 2 - 1;
+    const size = term.getSize();
+
+    if (size.cols % 2 != 0) {
+        App.Board.maxX = size.cols - 2 - 1;
     } else {
-        App.Board.maxX = size.x - 2;
+        App.Board.maxX = size.cols - 2;
     }
-    App.Board.maxY = size.y;
+    App.Board.maxY = size.rows;
 
     var shouldExit = false;
     while (!shouldExit) {
