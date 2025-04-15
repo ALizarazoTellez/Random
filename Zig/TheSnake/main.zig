@@ -50,7 +50,7 @@ const App = struct {
                 .left => if (Snake.x > 2) {
                     Snake.x -= 2;
                 },
-                .right => if (Snake.x < Board.maxX - 3) {
+                .right => if (Snake.x < Board.maxX - 4) {
                     Snake.x += 2;
                 },
             }
@@ -62,19 +62,18 @@ const App = struct {
     }
 
     fn draw(output: *String) !void {
-        var i: u16 = 0;
-        while (i <= Board.maxX) : (i += 1) {
-            var j: u16 = 0;
-            while (j <= Board.maxY) : (j += 1) {
-                if (((i != 0) and (i != (Board.maxX))) and ((j != 0) and (j != Board.maxY))) {
-                    continue;
-                }
-
-                try setPos(output, i, j);
-                const block = ansi.blackBackground ++ "  " ++ ansi.defaultBackground;
-                try output.concat(block);
-            }
+        try output.concat(ansi.blackBackground);
+        try output.repeat(" ", Board.maxX);
+        var i: u16 = 1;
+        while (i <= Board.maxY - 2) : (i += 1) {
+            try setPos(output, 0, i);
+            try output.concat("  ");
+            try setPos(output, Board.maxX - 2, i);
+            try output.concat("  ");
         }
+        try setPos(output, 0, Board.maxY);
+        try output.repeat(" ", Board.maxX);
+        try output.concat(ansi.defaultBackground);
 
         try setPos(output, Snake.x, Snake.y);
         const hello = ansi.inverseMode ++ "··" ++ ansi.noInverseMode;
@@ -148,9 +147,9 @@ pub fn main() !void {
     const size = term.getSize();
 
     if (size.cols % 2 != 0) {
-        App.Board.maxX = size.cols - 2 - 1;
+        App.Board.maxX = size.cols - 1;
     } else {
-        App.Board.maxX = size.cols - 2;
+        App.Board.maxX = size.cols;
     }
     App.Board.maxY = size.rows;
 

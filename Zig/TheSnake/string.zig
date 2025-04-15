@@ -30,6 +30,13 @@ pub const String = struct {
         const s = try std.fmt.bufPrint(self.s[self.s.len - 5 ..], "{}", .{u});
         self.s = try self.allocator.realloc(self.s, self.s.len - (5 - s.len));
     }
+
+    pub fn repeat(self: *String, s: []const u8, times: u16) !void {
+        var i: u16 = 0;
+        while (i < times) : (i += 1) {
+            try self.concat(s);
+        }
+    }
 };
 
 test "basic" {
@@ -62,4 +69,12 @@ test "number" {
 
     try s.concatU16(12345);
     try testing.expect(mem.eql(u8, "12345", s.s));
+}
+
+test "repeat" {
+    var s: String = try .init(testing.allocator);
+    defer s.deinit();
+
+    try s.repeat("Zig", 3);
+    try testing.expect(mem.eql(u8, "ZigZigZig", s.s));
 }
