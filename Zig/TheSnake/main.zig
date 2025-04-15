@@ -3,6 +3,7 @@ const std = @import("std");
 const linux = std.os.linux;
 
 const term = @import("term.zig");
+const ansi = @import("ansi.zig");
 
 const String = @import("string.zig").String;
 
@@ -70,19 +71,18 @@ const App = struct {
                 }
 
                 try setPos(output, i, j);
-                const block = "\x1b[40m  \x1b[49m";
+                const block = ansi.blackBackground ++ "  " ++ ansi.defaultBackground;
                 try output.concat(block);
             }
         }
 
         try setPos(output, Snake.x, Snake.y);
-        const hello = "\x1b[7m··\x1b[27m";
+        const hello = ansi.inverseMode ++ "··" ++ ansi.noInverseMode;
         try output.concat(hello);
     }
 
     fn setPos(output: *String, x: u16, y: u16) !void {
-        const home = "\x1b[H";
-        try output.concat(home);
+        try output.concat(ansi.positionHome);
 
         if (x > 0) {
             const moveRightStart = "\x1b[";
@@ -137,10 +137,11 @@ pub fn main() !void {
     term.setRawMode(true);
     defer term.setRawMode(false);
 
-    try stdout.print("\x1b[?1049h", .{}); // Enable alternate buffer.
-    defer stdout.print("\x1b[?1049l", .{}) catch {}; // Disable alternate buffer.
+    try stdout.print(ansi.enableAlternativeBuffer, .{});
+    defer stdout.print(ansi.disableAlternativeBuffer, .{}) catch {};
 
-    try stdout.print("\x1b[?25l", .{}); // Make the cursor invisible.
+    try stdout.print(ansi.makeCursorInvisible, .{});
+    defer stdout.print(ansi.makeCursorVisible, .{}) catch {};
 
     const startTimestamp = std.time.milliTimestamp();
 
@@ -159,7 +160,7 @@ pub fn main() !void {
 
         var string: String = try .init(allocator);
         try App.draw(&string);
-        try stdout.print("\x1b[H\x1b[2J{s}", .{string.s});
+        try stdout.print(ansi.positionHome ++ ansi.eraseEntireScreen ++ "{s}", .{string.s});
         string.deinit();
 
         const waitTime = @abs(@rem(std.time.milliTimestamp() - startTimestamp, 16));
