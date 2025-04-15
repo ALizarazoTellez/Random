@@ -4,6 +4,8 @@ const linux = std.os.linux;
 
 const term = @import("term.zig");
 
+const String = @import("string.zig").String;
+
 const App = struct {
     const Direction = enum { up, down, left, right };
     const Snake = struct {
@@ -58,10 +60,7 @@ const App = struct {
         return false;
     }
 
-    // Caller must free returned slice.
-    fn draw(allocator: std.mem.Allocator) ![]u8 {
-        var output = try allocator.alloc(u8, 0);
-
+    fn draw(output: *String) !void {
         var i: u16 = 0;
         while (i <= Board.maxX) : (i += 1) {
             var j: u16 = 0;
@@ -70,77 +69,63 @@ const App = struct {
                     continue;
                 }
 
-                try setPos(allocator, &output, i, j);
+                try setPos(output, i, j);
                 const block = "\x1b[40m  \x1b[49m";
-                output = try allocator.realloc(output, output.len + block.len);
-                std.mem.copyForwards(u8, output[output.len - block.len ..], block);
+                try output.concat(block);
             }
         }
 
-        try setPos(allocator, &output, Snake.x, Snake.y);
+        try setPos(output, Snake.x, Snake.y);
         const hello = "\x1b[7m··\x1b[27m";
-        output = try allocator.realloc(output, output.len + hello.len);
-        std.mem.copyForwards(u8, output[output.len - hello.len ..], hello);
-
-        return output;
+        try output.concat(hello);
     }
 
-    // Caller must free memory.
-    fn setPos(allocator: std.mem.Allocator, base: *[]u8, x: u16, y: u16) !void {
-        const n = 3;
-
+    fn setPos(output: *String, x: u16, y: u16) !void {
         const home = "\x1b[H";
-
-        var output = base.*;
-
-        output = try allocator.realloc(output, output.len + home.len);
-        _ = try std.fmt.bufPrint(output[output.len - home.len ..], home, .{});
+        try output.concat(home);
 
         if (x > 0) {
             const moveRightStart = "\x1b[";
             const moveRightEnd = "C";
 
-            output = try allocator.realloc(output, output.len + moveRightStart.len + n + moveRightEnd.len);
-            const printed = try std.fmt.bufPrint(output[output.len - moveRightStart.len - n - moveRightEnd.len ..], moveRightStart ++ "{}" ++ moveRightEnd, .{x});
-            output = try allocator.realloc(output, output.len - n + printed.len - moveRightStart.len - moveRightEnd.len);
+            try output.concat(moveRightStart);
+            try output.concatU16(x);
+            try output.concat(moveRightEnd);
         }
 
         if (y > 0) {
             const moveDownStart = "\x1b[";
             const moveDownEnd = "B";
 
-            output = try allocator.realloc(output, output.len + moveDownStart.len + n + moveDownEnd.len);
-            const printed = try std.fmt.bufPrint(output[output.len - moveDownStart.len - n - moveDownEnd.len ..], moveDownStart ++ "{}" ++ moveDownEnd, .{y});
-            output = try allocator.realloc(output, output.len - n + printed.len - moveDownStart.len - moveDownEnd.len);
+            try output.concat(moveDownStart);
+            try output.concatU16(y);
+            try output.concat(moveDownEnd);
         }
-
-        base.* = output;
     }
 };
 
 test "setPos behavior" {
-    const allocator = std.testing.allocator;
     const expect = std.testing.expect;
 
-    var output = try allocator.alloc(u8, 0);
-    try App.setPos(allocator, &output, 37, 42);
-    try expect(std.mem.eql(u8, output, "\x1b[H\x1b[37C\x1b[42B"));
-    allocator.free(output);
+    var output: String = try .init(std.testing.allocator);
+    try App.setPos(&output, 37, 42);
+    try expect(std.mem.eql(u8, output.s, "\x1b[H\x1b[37C\x1b[42B"));
+    output.deinit();
 
-    output = try allocator.alloc(u8, 0);
-    try App.setPos(allocator, &output, 0, 0);
-    try expect(std.mem.eql(u8, output, "\x1b[H"));
-    allocator.free(output);
+    output = try .init(std.testing.allocator);
+    try App.setPos(&output, 0, 0);
+    try expect(std.mem.eql(u8, output.s, "\x1b[H"));
+    output.deinit();
 
-    output = try allocator.alloc(u8, 0);
-    try App.setPos(allocator, &output, 1, 0);
-    try expect(std.mem.eql(u8, output, "\x1b[H\x1b[1C"));
-    allocator.free(output);
+    output = try .init(std.testing.allocator);
+    try App.setPos(&output, 1, 0);
+    try expect(std.mem.eql(u8, output.s, "\x1b[H\x1b[1C"));
+    output.deinit();
 
-    output = try allocator.alloc(u8, 0);
-    try App.setPos(allocator, &output, 0, 1);
-    try expect(std.mem.eql(u8, output, "\x1b[H\x1b[1B"));
-    allocator.free(output);
+    output = try .init(std.testing.allocator);
+    try App.setPos(&output, 0, 1);
+    try expect(std.mem.eql(u8, output.s, "\x1b[H\x1b[1B"));
+    output.deinit();
 }
 
 const stdout = std.io.getStdOut().writer();
@@ -171,9 +156,11 @@ pub fn main() !void {
     var shouldExit = false;
     while (!shouldExit) {
         shouldExit = App.update();
-        const text = try App.draw(allocator);
-        try stdout.print("\x1b[H\x1b[2J{s}", .{text});
-        allocator.free(text);
+
+        var string: String = try .init(allocator);
+        try App.draw(&string);
+        try stdout.print("\x1b[H\x1b[2J{s}", .{string.s});
+        string.deinit();
 
         const waitTime = @abs(@rem(std.time.milliTimestamp() - startTimestamp, 16));
         std.Thread.sleep(waitTime * 1000000);
