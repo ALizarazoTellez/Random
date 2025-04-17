@@ -9,10 +9,50 @@ const String = @import("string.zig").String;
 
 const App = struct {
     const Direction = enum { up, down, left, right };
+    const Coords = struct { x: u16, y: u16 };
     const Snake = struct {
-        var x: u8 = 6;
-        var y: u8 = 6;
-        var direction: Direction = .down;
+        var bodyArray: [100]Coords = undefined;
+        var body: []Coords = undefined;
+        var direction: Direction = .right;
+
+        fn init() void {
+            @memset(&Snake.bodyArray, .{ .x = 0, .y = 0 });
+            Snake.body = Snake.bodyArray[0..1];
+            Snake.head().x = Board.maxX / 2 - 4;
+            Snake.head().y = Board.maxY / 2;
+        }
+
+        fn head() *Coords {
+            return &Snake.body[0];
+        }
+
+        fn increase() void {
+            Snake.body = Snake.bodyArray[0 .. Snake.body.len + 1];
+            Snake.move();
+        }
+
+        fn move() void {
+            var end = Snake.body.len - 1;
+            while (end > 0) {
+                Snake.body[end] = Snake.body[end - 1];
+                end -= 1;
+            }
+
+            switch (Snake.direction) {
+                .up => if (Snake.head().y > 1) {
+                    Snake.head().y -= 1;
+                },
+                .down => if (Snake.head().y < Board.maxY - 2) {
+                    Snake.head().y += 1;
+                },
+                .left => if (Snake.head().x > 2) {
+                    Snake.head().x -= 2;
+                },
+                .right => if (Snake.head().x < Board.maxX - 4) {
+                    Snake.head().x += 2;
+                },
+            }
+        }
     };
     const Board = struct {
         var maxX: u16 = 0;
@@ -39,21 +79,11 @@ const App = struct {
             else => {},
         }
 
-        if (ticks % 20 == 0) {
-            switch (Snake.direction) {
-                .up => if (Snake.y > 1) {
-                    Snake.y -= 1;
-                },
-                .down => if (Snake.y < Board.maxY - 2) {
-                    Snake.y += 1;
-                },
-                .left => if (Snake.x > 2) {
-                    Snake.x -= 2;
-                },
-                .right => if (Snake.x < Board.maxX - 4) {
-                    Snake.x += 2;
-                },
-            }
+        if (ticks % 20 == 0 and ticks % 40 != 0) {
+            Snake.move();
+        }
+        if (ticks % 40 == 0) {
+            Snake.increase();
         }
 
         ticks += 1;
@@ -75,9 +105,22 @@ const App = struct {
         try output.repeat(" ", Board.maxX);
         try output.concat(ansi.defaultBackground);
 
-        try setPos(output, Snake.x, Snake.y);
+        try setPos(output, Snake.head().x, Snake.head().y);
         const hello = ansi.inverseMode ++ "··" ++ ansi.noInverseMode;
         try output.concat(hello);
+
+        for (Snake.body[1..], 0..) |body, index| {
+            try setPos(output, body.x, body.y);
+            var texture = "  ";
+            if (index % 4 == 1) {
+                texture = "--";
+            } else if (index % 2 == 1) {
+                texture = "||";
+            }
+            try output.concat(ansi.inverseMode);
+            try output.concat(texture);
+            try output.concat(ansi.noInverseMode);
+        }
     }
 
     fn setPos(output: *String, x: u16, y: u16) !void {
@@ -152,6 +195,8 @@ pub fn main() !void {
         App.Board.maxX = size.cols;
     }
     App.Board.maxY = size.rows;
+
+    App.Snake.init();
 
     var shouldExit = false;
     while (!shouldExit) {
