@@ -27,6 +27,10 @@ const App = struct {
         }
 
         fn increase() void {
+            if (Snake.body.len == Snake.bodyArray.len) {
+                return;
+            }
+
             Snake.body = Snake.bodyArray[0 .. Snake.body.len + 1];
             Snake.move();
         }
