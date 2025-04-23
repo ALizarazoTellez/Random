@@ -40,6 +40,10 @@ func main() {
 	}
 
 	if publicIP == nil {
+		fmt.Println("Checking environment variable `BINDADDR`...")
+		publicIP = net.ParseIP(os.Getenv("BINDADDR")).To4()
+	}
+	if publicIP == nil {
 		fmt.Println("No valid IP found!")
 		os.Exit(2)
 	}
