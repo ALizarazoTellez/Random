@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1" />
+  </head>
+  <body>
+    <h1>Uploader</h1>
+    <form action="/upload" method="post" enctype="multipart/form-data" target="_blank">
+      <input name="file" type="file" />
+      <button>Upload</button>
+    </form>
+
+    <h1>Downloader</h1>
+    {{ block "download-links" . }}
+      {{ if . }}
+         <ul>
+         {{ range . }}
+            <li><a href="/download/{{print .}}" download>{{print .}}</a></li>
+         {{end}}
+         </ul>
+      {{ else }}
+         <p>There is nothing to download...</p>
+      {{ end }}
+    {{ end }}
+  </body>
+</html>

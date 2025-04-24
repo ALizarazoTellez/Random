@@ -1,45 +1,35 @@
 package main
 
 import (
-	"fmt"
+	"embed"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 )
 
+//go:embed frontend/*
+var frontend embed.FS
+
+var templates = template.Must(template.New("templates").ParseFS(frontend, "frontend/*.html.gotmpl"))
+
 type handlerSet struct {
 	storage string
 }
 
 func (h handlerSet) home(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, `
-<!doctype html>
-<html>
-<head>
-	<meta charset=utf-8>
-	<meta name=viewport content=initial-scale=1>
-</head>
-<body>
-	<h1> Uploader </h1>
-	<form action=/upload method=post enctype=multipart/form-data>
-		<input name=file type=file>
-		<button> Upload </button>
-	</form>
-
-	<h1> Downloader </h1>
-	<ul>`)
-
 	files, err := os.ReadDir(h.storage)
 	if err != nil {
 		panic(err)
 	}
 
-	for _, file := range files {
-		fmt.Fprintf(w, "<li><a href='/download/%s' download>%s</a></li>", file.Name(), file.Name())
+	names := make([]string, len(files))
+	for i, file := range files {
+		names[i] = file.Name()
 	}
 
-	fmt.Fprint(w, "</ul></body></html>")
+	templates.ExecuteTemplate(w, "index.html.gotmpl", names)
 }
 
 func (h handlerSet) postUpload(w http.ResponseWriter, r *http.Request) {
