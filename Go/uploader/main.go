@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 )
 
 func main() {
@@ -60,5 +61,15 @@ func main() {
 
 	addr := publicIP.String() + ":1234"
 	fmt.Printf("Serving on: %q...\n", addr)
-	fmt.Println(http.ListenAndServe(addr, nil))
+	go func() { fmt.Println(http.ListenAndServe(addr, nil)) }()
+
+	signalInterrupt := make(chan os.Signal, 1)
+	signal.Notify(signalInterrupt, os.Interrupt)
+	<-signalInterrupt
+
+	if err := os.RemoveAll(storage); err != nil {
+		panic(err)
+	}
+
+	fmt.Println("Cleanup done.")
 }
