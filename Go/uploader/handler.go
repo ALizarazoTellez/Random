@@ -30,7 +30,11 @@ func (h handlerSet) home(w http.ResponseWriter, r *http.Request) {
 		names[i] = file.Name()
 	}
 
-	templates.ExecuteTemplate(w, "index.html.gotmpl", names)
+	if r.Header.Get("HX-Request") == "true" {
+		templates.ExecuteTemplate(w, "download-links", names)
+	} else {
+		templates.ExecuteTemplate(w, "index.html.gotmpl", names)
+	}
 }
 
 func (h handlerSet) postUpload(w http.ResponseWriter, r *http.Request) {
@@ -68,4 +72,8 @@ func (h handlerSet) download(w http.ResponseWriter, r *http.Request) {
 	if _, err := io.Copy(w, localFile); err != nil {
 		panic(err)
 	}
+}
+
+func (h handlerSet) htmx(w http.ResponseWriter, r *http.Request) {
+	http.ServeFileFS(w, r, frontend, "frontend/htmx.min.js")
 }

@@ -3,25 +3,28 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="initial-scale=1" />
+    <script src="/htmx.min.js"></script>
   </head>
   <body>
     <h1>Uploader</h1>
-    <form action="/upload" method="post" enctype="multipart/form-data" target="_blank">
+    <form data-hx-post="/upload" data-hx-swap="none" data-hx-encoding="multipart/form-data" hx-on::after-request="if(event.detail.successful) this.reset()">
       <input name="file" type="file" />
       <button>Upload</button>
     </form>
 
     <h1>Downloader</h1>
-    {{ block "download-links" . }}
-      {{ if . }}
-         <ul>
-         {{ range . }}
-            <li><a href="/download/{{print .}}" download>{{print .}}</a></li>
-         {{end}}
-         </ul>
-      {{ else }}
-         <p>There is nothing to download...</p>
-      {{ end }}
-    {{ end }}
+    <div data-hx-get="/" data-hx-trigger="every 500ms">
+       {{ block "download-links" . }}
+         {{ if . }}
+            <ul>
+            {{ range . }}
+               <li><a href="/download/{{print .}}" download>{{print .}}</a></li>
+            {{end}}
+            </ul>
+         {{ else }}
+            <p>There is nothing to download...</p>
+         {{ end }}
+       {{ end }}
+    </div>
   </body>
 </html>

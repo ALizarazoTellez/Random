@@ -58,6 +58,7 @@ func main() {
 	http.HandleFunc("/", handlers.home)
 	http.HandleFunc("/download/", handlers.download)
 	http.HandleFunc("POST /upload", handlers.postUpload)
+	http.HandleFunc("/htmx.min.js", handlers.htmx)
 
 	addr := publicIP.String() + ":1234"
 	fmt.Printf("Serving on: %q...\n", addr)
