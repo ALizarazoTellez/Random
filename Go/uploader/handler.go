@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"html/template"
 	"io"
 	"net/http"
@@ -63,6 +64,7 @@ func (h handlerSet) download(w http.ResponseWriter, r *http.Request) {
 	}
 	defer localFile.Close()
 
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	if _, err := io.Copy(w, localFile); err != nil {
 		panic(err)
 	}
