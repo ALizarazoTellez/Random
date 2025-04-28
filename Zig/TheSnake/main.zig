@@ -64,10 +64,16 @@ const App = struct {
     };
 
     var ticks: u64 = 0;
+    var gameOver = true;
 
     fn update() bool {
         switch (term.readChar()) {
             'q' => return true,
+
+            '\n' => {
+                gameOver = false;
+                Snake.init();
+            },
 
             '\x1b' => switch (term.readChar()) {
                 '[' => switch (term.readChar()) {
@@ -83,6 +89,10 @@ const App = struct {
             else => {},
         }
 
+        if (gameOver) {
+            return false;
+        }
+
         if (ticks % 20 == 0 and ticks % 40 != 0) {
             Snake.move();
         }
@@ -92,10 +102,24 @@ const App = struct {
 
         ticks += 1;
 
+        for (Snake.body[1..]) |body| {
+            if (Snake.head().x == body.x and Snake.head().y == body.y) {
+                gameOver = true;
+                break;
+            }
+        }
+
         return false;
     }
 
     fn draw(output: *String) !void {
+        if (gameOver) {
+            try output.concat("Game over\n");
+            try output.concat("Press 'Q' to quit.\n");
+            try output.concat("Press 'Enter' to start a new game.");
+            return;
+        }
+
         try output.concat(ansi.blackBackground);
         try output.repeat(" ", Board.maxX);
         var i: u16 = 1;
