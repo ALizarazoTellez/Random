@@ -133,8 +133,6 @@ pub const Game = struct {
     pub fn mainloop(self: *Game) !void {
         const stdout = std.io.getStdOut().writer();
 
-        const start_timestamp = std.time.milliTimestamp();
-
         while (true) {
             self.update() catch {
                 break;
@@ -145,8 +143,8 @@ pub const Game = struct {
             try stdout.print(ansi.positionHome ++ ansi.eraseEntireScreen ++ "{s}", .{self.buffer.s});
             self.buffer.deinit();
 
-            const wait_time = @abs(@rem(std.time.milliTimestamp() - start_timestamp, 16));
-            std.Thread.sleep(wait_time * 1000000);
+            std.Thread.sleep(@as(comptime_int, 1e9) / 60);
+            self.ticks += 1;
         }
     }
 
@@ -179,8 +177,6 @@ pub const Game = struct {
             return;
         }
 
-        self.ticks += 1;
-
         for (self.snake.body()[1..]) |body| {
             if (self.snake.head().x == body.x and self.snake.head().y == body.y) {
                 self.is_game_over = true;
@@ -195,7 +191,7 @@ pub const Game = struct {
             self.points += 1;
         }
 
-        if (self.ticks % 20 == 0) {
+        if (self.ticks % 10 == 0) {
             self.snake.move();
         }
     }
