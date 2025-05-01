@@ -1,6 +1,5 @@
 const std = @import("std");
 
-const linux = std.os.linux;
 
 const term = @import("term.zig");
 const ansi = @import("ansi.zig");
