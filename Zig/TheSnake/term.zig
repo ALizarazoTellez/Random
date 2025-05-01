@@ -5,6 +5,7 @@ const linux = std.os.linux;
 
 const stdin = std.io.getStdIn();
 
+/// Returns the terminal size.
 pub fn getSize() struct { cols: u16, rows: u16 } {
     var winsize: std.posix.winsize = undefined;
     _ = linux.ioctl(stdin.handle, linux.T.IOCGWINSZ, @intFromPtr(&winsize));
