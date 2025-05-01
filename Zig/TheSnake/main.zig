@@ -8,6 +8,45 @@ const ansi = @import("ansi.zig");
 const String = @import("string.zig").String;
 
 const App = struct {
+    var rand: std.Random = undefined;
+    const Apple = struct {
+        var x: u16 = undefined;
+        var y: u16 = undefined;
+
+        fn drop() void {
+            randPos();
+
+            var i: usize = 0;
+            while (i < Snake.body.len) {
+                if (Apple.x == Snake.body[i].x) {
+                    randPos();
+                    i = 0;
+                    continue;
+                }
+
+                if (Apple.y == Snake.body[i].y) {
+                    randPos();
+                    i = 0;
+                    continue;
+                }
+
+                i += 1;
+            }
+        }
+
+        fn randPos() void {
+            Apple.x = rand.uintLessThan(u16, Board.maxX);
+            Apple.y = rand.uintLessThan(u16, Board.maxY);
+
+            if (Apple.x % 2 != 0) {
+                Apple.x -= 1;
+            }
+
+            if (Apple.x == 0 or Apple.x > Board.maxX - 4 or Apple.y == 0 or Apple.y == Board.maxY - 1) {
+                randPos();
+            }
+        }
+    };
     const Direction = enum { up, down, left, right };
     const Coords = struct { x: u16, y: u16 };
     const Snake = struct {
@@ -20,6 +59,10 @@ const App = struct {
             Snake.body = Snake.bodyArray[0..1];
             Snake.head().x = Board.maxX / 2 - 4;
             Snake.head().y = Board.maxY / 2;
+
+            if (Snake.head().x % 2 != 0) {
+                Snake.head().x -= 1;
+            }
         }
 
         fn head() *Coords {
@@ -66,12 +109,16 @@ const App = struct {
     var ticks: u64 = 0;
     var gameOver = true;
 
+    var points: u64 = 0;
+
     fn update() bool {
         switch (term.readChar()) {
             'q' => return true,
 
             '\n' => {
                 gameOver = false;
+                points = 0;
+                Apple.drop();
                 Snake.init();
             },
 
@@ -96,9 +143,6 @@ const App = struct {
         if (ticks % 20 == 0 and ticks % 40 != 0) {
             Snake.move();
         }
-        if (ticks % 40 == 0) {
-            Snake.increase();
-        }
 
         ticks += 1;
 
@@ -109,6 +153,12 @@ const App = struct {
             }
         }
 
+        if (Snake.head().x == Apple.x and Snake.head().y == Apple.y) {
+            Snake.increase();
+            Apple.drop();
+            points += 1;
+        }
+
         return false;
     }
 
@@ -116,7 +166,9 @@ const App = struct {
         if (gameOver) {
             try output.concat("Game over\n");
             try output.concat("Press 'Q' to quit.\n");
-            try output.concat("Press 'Enter' to start a new game.");
+            try output.concat("Press 'Enter' to start a new game.\n");
+            try output.concat("\n\nTotal points: ");
+            try output.concatU16(@truncate(points)); // TODO: Make concat generic.
             return;
         }
 
@@ -149,6 +201,11 @@ const App = struct {
             try output.concat(texture);
             try output.concat(ansi.noInverseMode);
         }
+
+        try setPos(output, Apple.x, Apple.y);
+        try output.concat(ansi.inverseMode);
+        try output.concat("OO");
+        try output.concat(ansi.noInverseMode);
     }
 
     fn setPos(output: *String, x: u16, y: u16) !void {
@@ -216,6 +273,9 @@ pub fn main() !void {
     const startTimestamp = std.time.milliTimestamp();
 
     const size = term.getSize();
+
+    var prng = std.Random.DefaultPrng.init(0);
+    App.rand = prng.random();
 
     if (size.cols % 2 != 0) {
         App.Board.maxX = size.cols - 1;
