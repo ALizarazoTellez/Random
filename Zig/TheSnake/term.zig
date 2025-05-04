@@ -25,6 +25,7 @@ pub fn setRawMode(enable: bool) void {
 
         normalTermios.lflag.ECHO = false;
         normalTermios.lflag.ICANON = false;
+        normalTermios.oflag.OPOST = false;
         normalTermios.cc[@intFromEnum(linux.V.MIN)] = 0;
         normalTermios.cc[@intFromEnum(linux.V.TIME)] = 0;
 

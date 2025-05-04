@@ -3,7 +3,9 @@ const std = @import("std");
 pub const ESC = "\x1b";
 
 pub const CSI = struct {
-    pub const gotoHome = 'H';
+    pub const moveHome = 'H';
+    pub const moveLeft = 'D';
+
     pub const eraseScreen = 'J';
     pub const colorMode = 'm';
     pub const COLOR_MODE = struct {

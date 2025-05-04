@@ -141,7 +141,7 @@ pub const Game = struct {
             self.buffer = try .init(self.allocator);
 
             const enc: ansi.Encoder = .init(self.buffer.writer());
-            try enc.csi(ansi.CSI.gotoHome, .{});
+            try enc.csi(ansi.CSI.moveHome, .{});
             try enc.csi(ansi.CSI.eraseScreen, .{2});
 
             try self.draw();
@@ -155,10 +155,14 @@ pub const Game = struct {
     }
 
     fn update(self: *Game) !void {
-        switch (term.readChar()) {
+        input: switch (term.readChar()) {
             'q' => return error.GameFinished,
 
             '\n' => {
+                if (!self.is_game_over) {
+                    break :input;
+                }
+
                 self.is_game_over = false;
                 self.points = 0;
                 self.snake = Snake.init(self.cols, self.rows);
@@ -228,25 +232,27 @@ pub const Game = struct {
     fn draw(self: *Game) !void {
         const enc: ansi.Encoder = .init(self.buffer.writer());
         if (self.is_game_over) {
-            try self.buffer.concat("Game over\n");
-            try self.buffer.concat("Press 'Q' to quit.\n");
-            try self.buffer.concat("Press 'Enter' to start a new game.\n");
-            try self.buffer.concat("\n\nTotal points: ");
-            try self.buffer.concatU16(@truncate(self.points)); // TODO: Make concat generic.
+            try self.drawMenu();
             return;
         }
 
         // Frame.
         try enc.csi(ansi.CSI.colorMode, .{ 48, 5, 235 });
         try self.buffer.repeat(" ", self.raw_cols);
+
         var i: u16 = 1;
         while (i <= self.raw_rows - 2) : (i += 1) {
-            try self.setPos(Coord{ .x = 0, .y = i });
-            try self.buffer.concat("  ");
-            try self.setPos(Coord{ .x = self.raw_cols - 2, .y = i });
-            try self.buffer.concat("  ");
+            try self.buffer.concat("\r\n  ");
         }
-        try self.setPos(Coord{ .x = 0, .y = self.raw_rows });
+
+        i = 1;
+        try self.setPos(Coord{ .x = self.raw_cols - 2, .y = 0 });
+        while (i <= self.raw_rows - 2) : (i += 1) {
+            try self.buffer.concat("\n  ");
+            try enc.csi(ansi.CSI.moveLeft, .{2});
+        }
+
+        try self.buffer.concat("\r\n");
         try self.buffer.repeat(" ", self.raw_cols);
         try enc.csi(ansi.CSI.colorMode, .{ansi.CSI.COLOR_MODE.defaultBackground});
 
@@ -278,9 +284,35 @@ pub const Game = struct {
         try enc.csi(ansi.CSI.colorMode, .{ansi.CSI.COLOR_MODE.noInverse});
     }
 
+    fn drawMenu(self: *Game) !void {
+        const enc: ansi.Encoder = .init(self.buffer.writer());
+
+        try self.buffer.concat("\n\n\r");
+
+        const textGameOver = "Game Over";
+        try self.buffer.repeat(" ", self.centerPadding(textGameOver.len));
+        try enc.csi(ansi.CSI.colorMode, .{ansi.CSI.COLOR_MODE.inverse});
+        try self.buffer.concat(textGameOver);
+        try enc.csi(ansi.CSI.colorMode, .{ansi.CSI.COLOR_MODE.noInverse});
+
+        try self.buffer.concat("\n\n\r Press 'Q' to quit.");
+        try self.buffer.concat("\n\r Press 'Enter' to start a new game.\n\n\r");
+
+        const textTotalPoints = "Total points: ";
+        try self.buffer.repeat(" ", self.centerPadding(textTotalPoints.len + 2));
+        try enc.csi(ansi.CSI.colorMode, .{ansi.CSI.COLOR_MODE.inverse});
+        try self.buffer.concat(textTotalPoints);
+        try self.buffer.concatU16(@truncate(self.points)); // TODO: Make concat generic.
+        try enc.csi(ansi.CSI.colorMode, .{ansi.CSI.COLOR_MODE.noInverse});
+    }
+
+    fn centerPadding(self: *Game, len: u16) u16 {
+        return @truncate(self.raw_cols / 2 - len / 2 + 1);
+    }
+
     fn setPos(self: *Game, coord: Coord) !void {
         const enc: ansi.Encoder = .init(self.buffer.writer());
-        try enc.csi(ansi.CSI.gotoHome, .{});
+        try enc.csi(ansi.CSI.moveHome, .{});
         //try self.buffer.concat(ansi.positionHome);
 
         if (coord.x > 0) {
