@@ -20,6 +20,15 @@ pub const String = struct {
         self.s = undefined;
     }
 
+    pub fn writer(self: *String) std.io.AnyWriter {
+        return .{ .context = self, .writeFn = String.write };
+    }
+
+    fn write(context: *const anyopaque, bytes: []const u8) anyerror!usize {
+        try @as(*String, @constCast(@alignCast(@ptrCast(context)))).concat(bytes);
+        return bytes.len;
+    }
+
     pub fn concat(self: *String, s: []const u8) !void {
         self.s = try self.allocator.realloc(self.s, self.s.len + s.len);
         mem.copyForwards(u8, self.s[self.s.len - s.len ..], s);

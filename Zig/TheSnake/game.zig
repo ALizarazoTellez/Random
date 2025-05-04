@@ -139,8 +139,14 @@ pub const Game = struct {
             };
 
             self.buffer = try .init(self.allocator);
+
+            const enc: ansi.Encoder = .init(self.buffer.writer());
+            try enc.csi(ansi.CSI.gotoHome, .{});
+            try enc.csi(ansi.CSI.eraseScreen, .{2});
+
             try self.draw();
-            try stdout.print(ansi.positionHome ++ ansi.eraseEntireScreen ++ "{s}", .{self.buffer.s});
+            try stdout.print("{s}", .{self.buffer.s});
+
             self.buffer.deinit();
 
             std.Thread.sleep(@as(comptime_int, 1e9) / 60);
@@ -220,6 +226,7 @@ pub const Game = struct {
     }
 
     fn draw(self: *Game) !void {
+        const enc: ansi.Encoder = .init(self.buffer.writer());
         if (self.is_game_over) {
             try self.buffer.concat("Game over\n");
             try self.buffer.concat("Press 'Q' to quit.\n");
@@ -230,7 +237,7 @@ pub const Game = struct {
         }
 
         // Frame.
-        try self.buffer.concat(ansi.blackBackground);
+        try enc.csi(ansi.CSI.colorMode, .{ 48, 5, 235 });
         try self.buffer.repeat(" ", self.raw_cols);
         var i: u16 = 1;
         while (i <= self.raw_rows - 2) : (i += 1) {
@@ -241,12 +248,13 @@ pub const Game = struct {
         }
         try self.setPos(Coord{ .x = 0, .y = self.raw_rows });
         try self.buffer.repeat(" ", self.raw_cols);
-        try self.buffer.concat(ansi.defaultBackground);
+        try enc.csi(ansi.CSI.colorMode, .{ansi.CSI.COLOR_MODE.defaultBackground});
 
         // Snake head.
         try self.setPos(Coord{ .x = self.snake.head().x * 2, .y = self.snake.head().y });
-        const hello = ansi.inverseMode ++ "··" ++ ansi.noInverseMode;
-        try self.buffer.concat(hello);
+        try enc.csi(ansi.CSI.colorMode, .{ansi.CSI.COLOR_MODE.inverse});
+        try self.buffer.concat("··");
+        try enc.csi(ansi.CSI.colorMode, .{ansi.CSI.COLOR_MODE.noInverse});
 
         // Snake body.
         for (self.snake.body()[1..], 0..) |body, index| {
@@ -257,21 +265,23 @@ pub const Game = struct {
             } else if (index % 2 == 1) {
                 texture = "||";
             }
-            try self.buffer.concat(ansi.inverseMode);
+            try enc.csi(ansi.CSI.colorMode, .{ansi.CSI.COLOR_MODE.inverse});
             try self.buffer.concat(texture);
-            try self.buffer.concat(ansi.noInverseMode);
+            try enc.csi(ansi.CSI.colorMode, .{ansi.CSI.COLOR_MODE.noInverse});
         }
 
         // Apple.
         const apple_pos = Coord{ .x = self.apple.x * 2, .y = self.apple.y };
         try self.setPos(apple_pos);
-        try self.buffer.concat(ansi.inverseMode);
+        try enc.csi(ansi.CSI.colorMode, .{ansi.CSI.COLOR_MODE.inverse});
         try self.buffer.concat("OO");
-        try self.buffer.concat(ansi.noInverseMode);
+        try enc.csi(ansi.CSI.colorMode, .{ansi.CSI.COLOR_MODE.noInverse});
     }
 
     fn setPos(self: *Game, coord: Coord) !void {
-        try self.buffer.concat(ansi.positionHome);
+        const enc: ansi.Encoder = .init(self.buffer.writer());
+        try enc.csi(ansi.CSI.gotoHome, .{});
+        //try self.buffer.concat(ansi.positionHome);
 
         if (coord.x > 0) {
             const moveRightStart = "\x1b[";
