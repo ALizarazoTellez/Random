@@ -3,6 +3,8 @@ const std = @import("std");
 const term = @import("term.zig");
 const ansi = @import("ansi.zig");
 
+const TICK_DURATION_NS = (1000 / 60) * 1e6;
+
 const String = @import("string.zig").String;
 
 const Coord = struct {
@@ -134,9 +136,19 @@ pub const Game = struct {
         const stdout = std.io.getStdOut().writer();
 
         while (true) {
+            const start_tick_time: u64 = @intCast(std.time.nanoTimestamp());
+
+            self.ticks += 1;
             self.update() catch {
                 break;
             };
+
+            const update_tick_time: u64 = @intCast(std.time.nanoTimestamp());
+
+            if (update_tick_time > start_tick_time + @as(u64, TICK_DURATION_NS)) {
+                std.debug.print("Skiped frame.\n", .{});
+                continue;
+            }
 
             self.buffer = try .init(self.allocator);
 
@@ -149,8 +161,14 @@ pub const Game = struct {
 
             self.buffer.deinit();
 
-            std.Thread.sleep(@as(comptime_int, 1e9) / 60);
-            self.ticks += 1;
+            const draw_tick_time: u64 = @intCast(std.time.nanoTimestamp());
+
+            // TODO: Render in `draw`.
+            try stdout.print("\x1b[H\x1b[3C UPu: {: >5}us - FPu: {: >5}us - FPS: {: >5} ", .{ (update_tick_time - start_tick_time) / @as(u64, 1e3), (draw_tick_time - update_tick_time) / @as(u64, 1e3), @as(u64, 60 * 1e6) / (draw_tick_time - start_tick_time) });
+
+            if (draw_tick_time < start_tick_time + @as(u64, TICK_DURATION_NS)) {
+                std.Thread.sleep(start_tick_time + @as(u64, TICK_DURATION_NS) - draw_tick_time);
+            }
         }
     }
 
