@@ -187,6 +187,16 @@ func main() {
 				continue
 			}
 
+			const minute = time.Second * 60
+			const hour = minute * 60
+
+			taskTime := time.Duration(hour*time.Duration(date.Hour()) + minute*time.Duration(date.Minute()))
+			currentTime := time.Duration(hour*time.Duration(time.Now().Hour()) + minute*time.Duration(time.Now().Minute()))
+
+			if currentTime > taskTime+task.duration {
+				continue
+			}
+
 			fmt.Printf("\t- %s (%s).\n", task.title, task.duration)
 		}
 	}
