@@ -9,10 +9,81 @@ import (
 	"unicode"
 )
 
+type dayMoment struct {
+	weekday time.Weekday
+	hour    int
+	minute  int
+}
+
+func newDayMoment(t time.Time) dayMoment {
+	return dayMoment{
+		weekday: t.Weekday(),
+		hour:    t.Hour(),
+		minute:  t.Minute(),
+	}
+}
+
+func (d dayMoment) String() string {
+	return fmt.Sprintf("<%s %d:%d>", d.weekday, d.hour, d.minute)
+}
+
+func (d dayMoment) difference(d2 dayMoment) time.Duration {
+	if d.weekday != d2.weekday {
+		panic("must be same days")
+	}
+
+	const minute = time.Second * 60
+	const hour = minute * 60
+
+	return hour*time.Duration(d.hour) + minute*time.Duration(d.minute) -
+		(hour*time.Duration(d2.hour) + minute*time.Duration(d2.minute))
+}
+
+func (d dayMoment) after(d2 dayMoment) bool {
+	return d2.before(d)
+}
+
+func (d dayMoment) before(d2 dayMoment) bool {
+	if d.weekday < d2.weekday {
+		return true
+	}
+
+	if d.weekday > d2.weekday {
+		return false
+	}
+
+	if d.hour < d2.hour {
+		return true
+	}
+
+	if d.hour > d2.hour {
+		return false
+	}
+
+	if d.minute < d2.minute {
+		return true
+	}
+
+	return false
+}
+
+func (d dayMoment) addDuration(duration time.Duration) dayMoment {
+	const minute = time.Second * 60
+	const hour = minute * 60
+
+	dayDuration := hour*time.Duration(d.hour) + minute*time.Duration(d.minute)
+	dayDuration += duration
+
+	d.hour = int(dayDuration.Hours())
+	d.minute = int((dayDuration - time.Duration(dayDuration.Hours())*hour).Minutes())
+
+	return d
+}
+
 type task struct {
-	title    string
-	duration time.Duration
-	dates    []time.Time
+	title      string
+	duration   time.Duration
+	dayMoments []dayMoment
 }
 
 func loadTasks(r io.Reader) ([]task, error) {
@@ -50,47 +121,52 @@ func loadTasks(r io.Reader) ([]task, error) {
 				return nil, fmt.Errorf("invalid duration %q", fields[1])
 			}
 		}
-		times := make([]time.Time, 0, len(fields[2:]))
-		for _, rawTime := range fields[2:] {
-			if rawTime[0] == '*' {
-				t, err := time.Parse("* 15:04", rawTime)
+		days := make([]dayMoment, 0, len(fields[2:]))
+		for _, rawDay := range fields[2:] {
+			// Global day marker.
+			if rawDay[0] == '*' {
+				t, err := time.Parse("* 15:04", rawDay)
 				if err != nil {
 					return nil, err
 				}
 
-				for i := 2; i <= 8; i++ {
-					times = append(times, t.AddDate(0, 0, i))
+				for i := range 7 {
+					days = append(days, dayMoment{weekday: time.Monday + time.Weekday(i), hour: t.Hour(), minute: t.Minute()})
 				}
 
 				continue
 			}
 
-			t, err := time.Parse("Mon 15:04", rawTime)
+			t, err := time.Parse("Mon 15:04", rawDay)
 			if err != nil {
 				return nil, err
 			}
-			switch rawTime[0:3] {
+
+			day := dayMoment{hour: t.Hour(), minute: t.Minute()}
+
+			switch rawDay[:3] {
 			case "Mon":
-				t = t.AddDate(0, 0, 2)
+				day.weekday = time.Monday
 			case "Tue":
-				t = t.AddDate(0, 0, 3)
+				day.weekday = time.Tuesday
 			case "Wed":
-				t = t.AddDate(0, 0, 4)
+				day.weekday = time.Wednesday
 			case "Thu":
-				t = t.AddDate(0, 0, 5)
+				day.weekday = time.Thursday
 			case "Fri":
-				t = t.AddDate(0, 0, 6)
+				day.weekday = time.Friday
 			case "Sat":
-				t = t.AddDate(0, 0, 7)
+				day.weekday = time.Saturday
 			case "Sun":
-				t = t.AddDate(0, 0, 8)
+				day.weekday = time.Sunday
 			default:
-				panic("unknown " + rawTime[0:3])
+				panic("unknown " + rawDay[:3])
 			}
 
-			times = append(times, t)
+			days = append(days, day)
 		}
-		tasks = append(tasks, task{title: fields[0], duration: duration, dates: times})
+
+		tasks = append(tasks, task{title: fields[0], duration: duration, dayMoments: days})
 	}
 
 	return tasks, nil
@@ -125,12 +201,7 @@ func parseLine(line string) []string {
 }
 
 func (t task) String() string {
-	dates := make([]string, 0, len(t.dates))
-	for _, date := range t.dates {
-		dates = append(dates, date.Format("Mon 15:04"))
-	}
-
-	return fmt.Sprintf("<%s: %s - %#v>", t.title, t.duration, dates)
+	return fmt.Sprintf("<%s: %s - %#v>", t.title, t.duration, t.dayMoments)
 }
 
 const timeLayout = "Monday, 15:04"
@@ -153,47 +224,40 @@ func main() {
 	fmt.Println("Current time is:", time.Now().Format(timeLayout))
 
 	fmt.Println("\nYou next tasks are (in 30min):")
+	currentTime := time.Now()
+	currentDayMoment := newDayMoment(currentTime)
+
 	for _, task := range tasks {
-		for _, date := range task.dates {
-			if date.Weekday() != time.Now().Weekday() {
+		for _, taskDayMoment := range task.dayMoments {
+			if taskDayMoment.weekday != currentDayMoment.weekday {
 				continue
 			}
 
-			const minute = time.Second * 60
-			const hour = minute * 60
-
-			taskTime := time.Duration(hour*time.Duration(date.Hour()) + minute*time.Duration(date.Minute()))
-			currentTime := time.Duration(hour*time.Duration(time.Now().Hour()) + minute*time.Duration(time.Now().Minute()))
-
-			if currentTime < taskTime-minute*30 {
+			if taskDayMoment.addDuration(task.duration).before(currentDayMoment) {
 				continue
 			}
 
-			if currentTime < taskTime {
-				fmt.Printf("\t- %s in %s (%s).\n", task.title, taskTime-currentTime, task.duration)
+			if currentDayMoment.after(taskDayMoment) {
+				fmt.Printf("\t- %s [%s].\n", task.title, taskDayMoment.addDuration(task.duration).difference(currentDayMoment))
 				continue
 			}
 
-			if currentTime < taskTime+task.duration {
-				fmt.Printf("\t- %s (%s).\n", task.title, taskTime+task.duration-currentTime)
+			if currentDayMoment.addDuration(time.Second * 60 * 30).after(taskDayMoment) {
+				fmt.Printf("\t- %s in %s (%s).\n", task.title, taskDayMoment.difference(currentDayMoment), task.duration)
+				continue
 			}
+
 		}
 	}
 
 	fmt.Println("\nYou tasks for today are:")
 	for _, task := range tasks {
-		for _, date := range task.dates {
-			if date.Weekday() != time.Now().Weekday() {
+		for _, taskDayMoment := range task.dayMoments {
+			if taskDayMoment.weekday != currentDayMoment.weekday {
 				continue
 			}
 
-			const minute = time.Second * 60
-			const hour = minute * 60
-
-			taskTime := time.Duration(hour*time.Duration(date.Hour()) + minute*time.Duration(date.Minute()))
-			currentTime := time.Duration(hour*time.Duration(time.Now().Hour()) + minute*time.Duration(time.Now().Minute()))
-
-			if currentTime > taskTime+task.duration {
+			if currentDayMoment.after(taskDayMoment.addDuration(task.duration)) {
 				continue
 			}
 
