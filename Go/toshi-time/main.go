@@ -165,12 +165,13 @@ func main() {
 			taskTime := time.Duration(hour*time.Duration(date.Hour()) + minute*time.Duration(date.Minute()))
 			currentTime := time.Duration(hour*time.Duration(time.Now().Hour()) + minute*time.Duration(time.Now().Minute()))
 
-			if currentTime > taskTime {
-				continue
-			}
-
-			if in := taskTime - currentTime; in <= minute*30 {
-				fmt.Printf("\t- %s in %s (%s).\n", task.title, in, task.duration)
+			if in := taskTime - currentTime; in <= minute*30 && currentTime > taskTime && currentTime < taskTime+task.duration {
+				if in < 0 {
+					in = taskTime + task.duration - currentTime
+					fmt.Printf("\t- %s (%s).\n", task.title, in)
+				} else {
+					fmt.Printf("\t- %s in %s (%s).\n", task.title, in, task.duration)
+				}
 			}
 
 		}
